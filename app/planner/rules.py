@@ -170,3 +170,192 @@ MONEY_SAVING_TIPS: Dict[str, List[str]] = {
         "Leverage volunteer networks for stage management and publicity rather than paid agencies.",
     ],
 }
+
+# Curated fallback idea bank categorized by event type, demographic, and dietary context
+CURATED_IDEA_BANK: Dict[str, dict] = {
+    "wedding": {
+        "theme_ideas": [
+            "Royal Heritage: Regal vintage elegance featuring brass accents, warm ambient lighting, and traditional motifs",
+            "Botanical Bohemia: Lush greenery pergolas, wooden accents, and flowing pastel macrame draping",
+            "Starry Starlight Glamour: Cascading fairy light ceilings, glass candle clusters, and deep midnight blue hues",
+        ],
+        "decor_ideas": [
+            "Entrance tunnel with warm white micro-fairy lights and suspended jasmine/marigold garlands",
+            "Custom couple monogram photo backdrop flanked by reusable geometric floral pillars",
+            "Low-profile floral runners on guest banquet tables allowing effortless face-to-face conversation",
+        ],
+        "activities": [
+            "Live classical acoustic welcome performance (flute/shehnai/violin) during guest arrival",
+            "Interactive Polaroid memory book station with metallic markers and guest advice cards",
+            "Customized couple shoe game and trivia quiz between reception dinner courses",
+        ],
+        "return_gift_ideas": [
+            "Artisanal brass tea-light or incense holder with organic scented wax melts",
+            "Handcrafted seed-infused bookmarks paired with premium roasted dry-fruit jars",
+        ],
+        "budget_hacks": [
+            "Book the venue on a Friday or Sunday afternoon to negotiate up to 25% lower rental fees.",
+            "Repurpose ceremony entrance floral arches to serve as the evening reception stage backdrop.",
+            "Offer a signature couple mocktail/cocktail pair instead of stocking a costly unrestricted bar.",
+        ],
+        "menus": {
+            "vegetarian": [
+                "Paneer Malai Tikka with mint-coriander chutney shots",
+                "Slow-simmered Dal Bukhara paired with wood-fired garlic naan",
+                "Royal Awadhi Dum Biryani garnished with crispy brown onions and roasted cashews",
+                "Warm Saffron Pistachio Kulfi with delicate silver leaf",
+            ],
+            "vegan": [
+                "Herb-marinated Smoked Tofu Skewers with pomegranate reduction",
+                "Coconut cream infused vegetable stew with steamed appams",
+                "Fragrant wild mushroom and truffle risotto with toasted pine nuts",
+                "Almond milk mango chia seed pudding parfaits",
+            ],
+            "jain": [
+                "Satvik Paneer Pasanda prepared strictly without onion or garlic",
+                "Traditional Dal Bati Churma with pure desi ghee and roasted cumin",
+                "Spiced Green Pea and Cottage Cheese Pulao with sweet saffron glaze",
+                "Fresh Moong Dal Halwa with roasted almond slivers",
+            ],
+            "default": [
+                "Tender Tandoori Murgh tikka skewers with charred lime",
+                "Slow-braised Butter Chicken served with flaky roomali roti",
+                "Hyderabadi Dum Gosht Biryani with spiced mirchi ka salan",
+                "Warm Gulab Jamun served with artisanal vanilla bean gelato",
+            ],
+        },
+    },
+    "birthday": {
+        "kids": {
+            "theme_ideas": [
+                "Cosmic Astronaut Adventure: Galaxy star projections, glowing planetary rings, and astronaut badges",
+                "Enchanted Jungle Safari: Tropical greenery, animal silhouette backdrops, and explorer safari hats",
+                "Superhero Training Academy: Action-packed training obstacle course with custom superhero capes",
+            ],
+            "decor_ideas": [
+                "Organic balloon garland arch framing the dessert and cake-cutting table",
+                "Personalized chalk-board milestone board chronicling favorite foods and achievements",
+                "Low seating picnic tables with colorful floor cushions and washable craft paper runners",
+            ],
+            "activities": [
+                "Interactive magician show featuring audience volunteer tricks and comedy illusions",
+                "Themed treasure hunt with rhyming clues leading to the hidden celebration treasure chest",
+                "Face-painting and temporary glitter tattoo corner with hypoallergenic non-toxic colors",
+            ],
+            "return_gift_ideas": [
+                "Eco-friendly plantable seed stationery sets with herbal coloring pencils",
+                "Customized storybook or DIY clay modeling craft kits in cotton drawstring bags",
+            ],
+            "budget_hacks": [
+                "Schedule the celebration between 3:00 PM and 5:30 PM to serve celebratory finger foods rather than a full meal.",
+                "Create DIY balloon pillars and photo backdrops using affordable balloon strip kits and fairy lights.",
+                "Enlist enthusiastic friends/family to coordinate traditional games (musical freeze, relay races) instead of costly agencies.",
+            ],
+        },
+        "general": {
+            "theme_ideas": [
+                "Retro Disco Fever: Shimmering mirror balls, vibrant 80s neon lighting, and vinyl record coasters",
+                "Chic Rooftop Sundowner: Warm sunset hues, acoustic lounge music, and cozy fairy-lit cocktail tables",
+                "Mystery Speakeasy: Moody candlelight, password-protected entrance, and jazz background ambiance",
+            ],
+            "decor_ideas": [
+                "Custom neon LED name sign mounted on a lush faux-foliage photo wall",
+                "Edison filament bulb light strings strung overhead across dining and lounge zones",
+                "Geometric metallic centerpieces adorned with baby's breath and pillar candles",
+            ],
+            "activities": [
+                "Audio guestbook telephone where attendees record voicemail memories and well-wishes",
+                "Curated group trivia game featuring hilarious anecdotes about the birthday guest of honor",
+                "Polaroid selfie scavenger hunt challenge with customized photo prop frames",
+            ],
+            "return_gift_ideas": [
+                "Personalized ceramic coffee mugs or stainless steel reusable travel tumblers",
+                "Gourmet hot chocolate jars with mini marshmallows and cinnamon swizzle sticks",
+            ],
+            "budget_hacks": [
+                "Design stylish digital invitations with interactive RSVP tracking to eliminate print expenses.",
+                "Set up a self-serve signature mocktail punch bowl and grazing snack board instead of full catering passes.",
+                "Rent high-fidelity Bluetooth party speakers and compile collaborative guest playlists.",
+            ],
+        },
+        "menus": {
+            "vegetarian": [
+                "Crispy Corn and Jalapeno cheese poppers with roasted garlic dip",
+                "Mini Veggie Sliders with seasoned potato patties and caramelised onions",
+                "Wood-fired Margherita and Pesto thin-crust pizza slices",
+                "Gourmet Belgian waffle skewers drizzled with Belgian chocolate sauce",
+            ],
+            "vegan": [
+                "Avocado and Heirloom Tomato bruschetta with balsamic glaze",
+                "Crispy Falafel sliders with pickled cucumber and creamy tahini sauce",
+                "Fire-roasted sweet corn tacos with chipotle avocado crema",
+                "Dairy-free dark chocolate mousse cups with fresh raspberries",
+            ],
+            "jain": [
+                "Crispy Cheese and Green Chili toasts prepared with Jain-friendly ingredients",
+                "Jain Margherita and Sweet Corn pizzas on fresh hand-tossed dough",
+                "Paneer Shawarma rolls with herb-seasoned yogurt spread (no root vegetables)",
+                "Vanilla bean sponge cake cups with fresh strawberry compote",
+            ],
+            "default": [
+                "Smoked BBQ Chicken wings with blue cheese dipping sauce",
+                "Mini Gourmet Beef/Chicken Sliders with melted cheddar cheese",
+                "Spicy Pepperoni and Quattro Formaggi wood-fired flatbreads",
+                "Triple chocolate fudge brownie bites with salted caramel drizzle",
+            ],
+        },
+    },
+    "community": {
+        "theme_ideas": [
+            "Neighborhood Heritage Festival: Celebrating local culture, historical crafts, and multi-generational stories",
+            "Green Community Earth Day: Sustainability workshops, native tree planting, and zero-waste demonstrations",
+            "Harvest Street Fair: Farmers market stalls, open-air buskers, and communal picnic benches",
+        ],
+        "decor_ideas": [
+            "Upcycled fabric bunting and colorful paper lanterns strung between venue trees and lamp posts",
+            "Chalkboard welcome sign and wooden easel direction markers made from reclaimed pallets",
+            "Interactive community banner where residents paint their handprints or pin neighborly compliments",
+        ],
+        "activities": [
+            "Community open-mic showcase celebrating local musicians, poets, and student dance troupes",
+            "Friendly inter-street tug-of-war competition and sack races for all age categories",
+            "Hands-on workshop corner featuring urban gardening tips and eco-craft activities",
+        ],
+        "return_gift_ideas": [
+            "Native tree saplings in biodegradable coir pots with planting guide cards",
+            "Reusable organic cotton canvas tote bags screen-printed with community artwork",
+        ],
+        "budget_hacks": [
+            "Partner with local cultural organizations and municipal authorities for fee-exempt public park reservations.",
+            "Invite local neighborhood restaurants and bakeries to set up food counters in exchange for visibility.",
+            "Recruit student and resident volunteers for logistics, welcoming, and stage coordination.",
+        ],
+        "menus": {
+            "vegetarian": [
+                "Assorted live street-food chaat station (pani puri, bhel puri, sev puri)",
+                "Crispy hot vegetable samosas served with sweet tamarind and spicy mint chutneys",
+                "Steaming hot Masala Chai and fresh spiced buttermilk counters",
+                "Warm saffron Jalebi prepared live at festive fry stations",
+            ],
+            "vegan": [
+                "Mediterranean mezze boxes with hummus, tabbouleh, and warm pita wedges",
+                "Roasted seasonal spiced vegetable bowls with lemon-herb quinoa",
+                "Fresh seasonal lemonade and cold-pressed watermelon mint spritzers",
+                "Traditional fruit chaat tossed with roasted cumin and rock salt",
+            ],
+            "jain": [
+                "Jain Sev Puri and Ragda Patties prepared strictly without potato, onion, or garlic",
+                "Raw banana cutlets served with sweet date chutney and roasted cumin yogurt",
+                "Freshly brewed cardamom tea (made with satvik dairy or plant milk)",
+                "Sweet Besan Ladoo garnished with chopped pistachios",
+            ],
+            "default": [
+                "Live BBQ chicken tikka and paneer tikka skewered snack boxes",
+                "Flavorful Biryani snack bowls with crispy onion and cooling raita",
+                "Chilled iced tea and spiced lemonade refreshment dispensers",
+                "Assorted traditional festive sweets and fresh fruit cups",
+            ],
+        },
+    },
+}
+
