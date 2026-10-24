@@ -2,6 +2,8 @@
 
 An accessible, context-aware planning assistant for weddings, birthdays, and community gatherings. It turns an event brief into a budget, backwards-planned timeline, vendor interview checklist, creative moodboard, and a what-if replanning comparison.
 
+**Live submission:** https://frontend-6re9s2vt2-rama76862-cryptos-projects.vercel.app
+
 ## Chosen vertical
 
 **Celebration and event planning.** The product is designed for couples, families, and community organizers who need realistic decisions across budget, time, guest count, dietary needs, and venue conditions.
