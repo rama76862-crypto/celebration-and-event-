@@ -123,6 +123,7 @@ def test_security_headers_present() -> None:
     assert resp.status_code == 200
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"
     assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert resp.headers.get("Permissions-Policy") == "geolocation=(), camera=(), microphone=()"
     assert "default-src 'self'" in resp.headers.get("Content-Security-Policy", "")
 
 

@@ -104,6 +104,7 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
 
     return response
 

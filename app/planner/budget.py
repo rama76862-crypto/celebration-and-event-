@@ -28,7 +28,7 @@ def get_base_weights(event_type: str) -> Dict[str, float]:
 
 def apply_city_tier_adjustments(
     weights: Dict[str, float],
-    city_tier: CityTier | None,
+    city_tier: CityTier | str | None,
     event_type: str,
     reasonings: Dict[str, List[str]],
 ) -> None:
@@ -36,16 +36,17 @@ def apply_city_tier_adjustments(
     if not city_tier:
         return
 
+    tier_value = city_tier.value if hasattr(city_tier, "value") else str(city_tier)
     catering_key = "catering" if "catering" in weights else "food/refreshments"
 
-    if city_tier == CityTier.METRO:
+    if tier_value == "metro":
         if "venue" in weights:
             weights["venue"] *= 1.15
             reasonings.setdefault("venue", []).append("Increased venue share for metro tier cost premium")
         if catering_key in weights:
             weights[catering_key] *= 1.10
             reasonings.setdefault(catering_key, []).append("Elevated catering allocation for metro living index")
-    elif city_tier == CityTier.SMALL_TOWN:
+    elif tier_value == "small_town":
         if "venue" in weights:
             weights["venue"] *= 0.85
             reasonings.setdefault("venue", []).append("Adjusted down for lower venue overhead in small town")
@@ -63,20 +64,22 @@ def apply_priorities_adjustments(
     """Boost categories prioritized by user by +20% relative weight."""
     mapping = PRIORITY_TO_CATEGORY.get(event_type, {})
     for p in priorities:
-        cat = mapping.get(str(p))
+        p_val = p.value if hasattr(p, "value") else str(p)
+        cat = mapping.get(p_val)
         if cat and cat in weights:
             weights[cat] *= 1.20
-            reasonings.setdefault(cat, []).append(f"Boosted (+20%) based on priority preference for {p}")
+            reasonings.setdefault(cat, []).append(f"Boosted (+20%) based on priority preference for {p_val}")
 
 
 def apply_age_group_adjustments(
     weights: Dict[str, float],
-    age_group: AgeGroup | None,
+    age_group: AgeGroup | str | None,
     event_type: str,
     reasonings: Dict[str, List[str]],
 ) -> None:
     """Adjust entertainment, cake, and photography for kids demographic."""
-    if age_group == AgeGroup.KIDS:
+    age_val = age_group.value if hasattr(age_group, "value") else str(age_group) if age_group else None
+    if age_val == "kids":
         if "entertainment" in weights:
             weights["entertainment"] *= 1.25
             reasonings.setdefault("entertainment", []).append("Enhanced entertainment allocation for kids activities")
@@ -90,13 +93,17 @@ def apply_age_group_adjustments(
 
 def apply_dietary_adjustments(
     weights: Dict[str, float],
-    dietary: List[DietaryOption],
+    dietary: List[DietaryOption | str],
     event_type: str,
     reasonings: Dict[str, List[str]],
 ) -> None:
     """Apply specialized catering premium for strict dietary restrictions."""
-    special_diets = {DietaryOption.JAIN, DietaryOption.HALAL, DietaryOption.VEGAN}
-    selected_special = [d.value for d in dietary if d in special_diets]
+    special_diets = {"jain", "halal", "vegan"}
+    selected_special = [
+        (d.value if hasattr(d, "value") else str(d))
+        for d in dietary
+        if (d.value if hasattr(d, "value") else str(d)) in special_diets
+    ]
     if selected_special:
         catering_key = "catering" if "catering" in weights else "food/refreshments"
         if catering_key in weights:

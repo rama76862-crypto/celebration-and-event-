@@ -55,26 +55,34 @@ async function checkHealth() {
 function validateForm() {
     let valid = true;
     const f = els.form;
-    const setErr = (id, msg) => {
+    const setErr = (id, inputId, msg) => {
         const node = $(id);
+        const input = $(inputId);
         if (node) node.textContent = msg;
+        if (input) {
+            if (msg) {
+                input.setAttribute('aria-invalid', 'true');
+            } else {
+                input.removeAttribute('aria-invalid');
+            }
+        }
         if (msg) valid = false;
     };
 
-    setErr('title-error', !f.title.value.trim() ? 'Title is required (1-100 chars).' : '');
+    setErr('title-error', 'event-title', !f.title.value.trim() ? 'Title is required (1-100 chars).' : '');
     const g = parseInt(f.guest_count.value, 10);
-    setErr('guest-error', isNaN(g) || g < 1 || g > 1000 ? 'Guest count must be 1-1,000.' : '');
+    setErr('guest-error', 'guest-count', isNaN(g) || g < 1 || g > 1000 ? 'Guest count must be 1-1,000.' : '');
     const b = parseFloat(f.total_budget.value);
-    setErr('budget-error', isNaN(b) || b <= 0 || b > 10000000 ? 'Budget must be > 0 and <= 10,000,000.' : '');
+    setErr('budget-error', 'total-budget', isNaN(b) || b <= 0 || b > 10000000 ? 'Budget must be > 0 and <= 10,000,000.' : '');
 
     if (!f.event_date.value) {
-        setErr('date-error', 'Please choose a future date.');
+        setErr('date-error', 'event-date', 'Please choose a future date.');
     } else {
         const d = new Date(f.event_date.value + 'T00:00:00');
         const today = new Date(); today.setHours(0,0,0,0);
-        setErr('date-error', d <= today ? 'Event date must be in the future.' : '');
+        setErr('date-error', 'event-date', d <= today ? 'Event date must be in the future.' : '');
     }
-    setErr('loc-error', !f.location.value.trim() ? 'Location is required.' : '');
+    setErr('loc-error', 'event-location', !f.location.value.trim() ? 'Location is required.' : '');
     return valid;
 }
 

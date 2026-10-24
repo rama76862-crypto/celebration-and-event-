@@ -98,3 +98,58 @@ def test_each_event_type_returns_expected_categories() -> None:
     comm_plan = generate_budget_plan(make_request(event_type="community"))
     comm_cats = {c.name for c in comm_plan.categories}
     assert {"venue", "food/refreshments", "equipment/AV", "permits/insurance", "volunteers", "publicity", "contingency"}.issubset(comm_cats)
+
+
+def test_city_tier_metro_raises_venue_and_catering() -> None:
+    """Metro city tier raises venue and catering percentages compared to small town tier."""
+    req_base = make_request(event_type="wedding")
+    req_base.city_tier = None
+    plan_base = generate_budget_plan(req_base)
+
+    req_metro = make_request(event_type="wedding")
+    req_metro.city_tier = "metro"  # type: ignore[assignment]
+    plan_metro = generate_budget_plan(req_metro)
+
+    req_town = make_request(event_type="wedding")
+    req_town.city_tier = "small_town"  # type: ignore[assignment]
+    plan_town = generate_budget_plan(req_town)
+
+    metro_venue = next(c for c in plan_metro.categories if c.name == "venue")
+    base_venue = next(c for c in plan_base.categories if c.name == "venue")
+    town_venue = next(c for c in plan_town.categories if c.name == "venue")
+    assert metro_venue.percentage > base_venue.percentage > town_venue.percentage
+
+
+def test_dietary_restrictions_add_catering_premium() -> None:
+    """Special dietary restrictions (jain, halal, vegan) add premium to catering share."""
+    req_standard = make_request(event_type="wedding")
+    req_standard.preferences.dietary = []
+    plan_standard = generate_budget_plan(req_standard)
+
+    req_jain = make_request(event_type="wedding")
+    req_jain.preferences.dietary = ["jain"]  # type: ignore[list-item]
+    plan_jain = generate_budget_plan(req_jain)
+
+    std_catering = next(c for c in plan_standard.categories if c.name == "catering")
+    jain_catering = next(c for c in plan_jain.categories if c.name == "catering")
+    assert jain_catering.percentage > std_catering.percentage
+
+
+def test_kids_demographic_adjusts_entertainment_and_cake() -> None:
+    """Kids demographic increases entertainment and cake, lowers photography."""
+    req_general = make_request(event_type="birthday")
+    req_general.preferences.age_group = None
+    plan_general = generate_budget_plan(req_general)
+
+    req_kids = make_request(event_type="birthday")
+    req_kids.preferences.age_group = "kids"  # type: ignore[assignment]
+    plan_kids = generate_budget_plan(req_kids)
+
+    gen_ent = next(c for c in plan_general.categories if c.name == "entertainment")
+    kids_ent = next(c for c in plan_kids.categories if c.name == "entertainment")
+    assert kids_ent.percentage > gen_ent.percentage
+
+    gen_photo = next(c for c in plan_general.categories if c.name == "photography")
+    kids_photo = next(c for c in plan_kids.categories if c.name == "photography")
+    assert kids_photo.percentage < gen_photo.percentage
+
