@@ -245,3 +245,54 @@ class FullPlan(BaseModel):
     timeline: TimelinePlan
     vendors: VendorChecklist
     ideas: IdeaSet
+
+
+class ReplanRequest(BaseModel):
+    """Input payload for adjusting event parameters and re-planning."""
+    model_config = ConfigDict(extra="forbid")
+    original_request: EventRequest
+    new_budget: Optional[float] = Field(default=None, gt=0, le=10_000_000)
+    new_guest_count: Optional[int] = Field(default=None, ge=1, le=1000)
+    new_event_date: Optional[date] = None
+
+    @field_validator("new_event_date")
+    @classmethod
+    def validate_future_date_if_present(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v <= date.today():
+            raise ValueError("Adjusted event date must be in the future")
+        return v
+
+
+class CategoryDiff(BaseModel):
+    """Comparison item for an individual budget category."""
+    model_config = ConfigDict(extra="forbid")
+    category: str
+    old_amount: float
+    new_amount: float
+    amount_change: float
+    percentage_change: float
+
+
+class PlanDiff(BaseModel):
+    """Structured delta between original and revised plans."""
+    model_config = ConfigDict(extra="forbid")
+    budget_changes: List[CategoryDiff]
+    timeline_changes: List[str] = Field(default_factory=list)
+    summary: List[str] = Field(default_factory=list)
+
+
+class SmartAdvice(BaseModel):
+    """Context-aware recommendations from advisor engine."""
+    model_config = ConfigDict(extra="forbid")
+    options_for_budget_or_guests: List[str] = Field(default_factory=list)
+    first_actions_this_week: List[str] = Field(default_factory=list)
+    tradeoff_advice: List[str] = Field(default_factory=list)
+
+
+class ReplanResponse(BaseModel):
+    """Output bundle containing new plan, structural diff, and advisor guidance."""
+    model_config = ConfigDict(extra="forbid")
+    new_plan: FullPlan
+    diff: PlanDiff
+    advice: SmartAdvice
+

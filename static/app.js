@@ -154,6 +154,11 @@ function renderPlan(plan) {
         els.warnings.classList.add('hidden');
     }
 
+    // Populate Replan form controls
+    if ($('replan-budget')) $('replan-budget').value = request.total_budget;
+    if ($('replan-guests')) $('replan-guests').value = request.guest_count;
+    if ($('replan-date')) $('replan-date').value = request.event_date;
+
     renderOverview(plan);
     renderBudget(budget);
     renderTimeline(timeline);
@@ -402,6 +407,51 @@ function switchTab(active) {
     announce(`Switched to ${active.textContent.trim()} tab.`);
 }
 
+async function handleReplanSubmit(e) {
+    e.preventDefault();
+    if (!state.currentPlan) return;
+
+    const newBudget = parseFloat($('replan-budget').value);
+    const newGuests = parseInt($('replan-guests').value, 10);
+    const newDate = $('replan-date').value;
+
+    announce('Re-calculating plan...');
+    try {
+        const res = await fetch('/api/replan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                original_request: state.currentPlan.request,
+                new_budget: isNaN(newBudget) ? null : newBudget,
+                new_guest_count: isNaN(newGuests) ? null : newGuests,
+                new_event_date: newDate || null,
+            }),
+        });
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        state.currentPlan = data.new_plan;
+        renderPlan(data.new_plan);
+
+        // Render Diff
+        const diffBox = $('replan-diff-container');
+        const badgeBox = $('diff-summary-badges');
+        const list = $('diff-details-list');
+        badgeBox.replaceChildren(); list.replaceChildren();
+
+        data.diff.summary.forEach(s => badgeBox.appendChild(el('span', 'diff-badge', s)));
+        data.diff.budget_changes.forEach(c => {
+            const sign = c.amount_change > 0 ? '+' : '';
+            list.appendChild(el('li', '', `${c.category}: ${sign}${c.amount_change.toLocaleString()} (${c.percentage_change > 0 ? '+' : ''}${c.percentage_change.toFixed(1)}%)`));
+        });
+        data.diff.timeline_changes.forEach(tc => list.appendChild(el('li', '', tc)));
+        diffBox.classList.remove('hidden');
+
+        announce(`Re-planned successfully: ${data.diff.summary.join(', ')}`);
+    } catch (err) {
+        announce('Re-plan error: ' + (err.detail || 'Unable to recalculate.'));
+    }
+}
+
 // Lifecycle Init
 document.addEventListener('DOMContentLoaded', () => {
     loadStorage();
@@ -409,6 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
 
     if (els.form) els.form.addEventListener('submit', handlePlanSubmit);
+    if ($('replan-form')) $('replan-form').addEventListener('submit', handleReplanSubmit);
     if ($('dismiss-error-btn')) $('dismiss-error-btn').addEventListener('click', () => els.error.classList.add('hidden'));
     if ($('print-plan-btn')) $('print-plan-btn').addEventListener('click', () => window.print());
 

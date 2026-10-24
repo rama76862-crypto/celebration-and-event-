@@ -20,6 +20,8 @@ from app.models import (
     IdeaSet,
     FullPlan,
     HealthResponse,
+    ReplanRequest,
+    ReplanResponse,
     EventType,
     PriorityCategory,
     AllowedCurrency,
@@ -32,6 +34,7 @@ from app.planner.budget import generate_budget_plan
 from app.planner.timeline import generate_timeline_plan
 from app.planner.vendors import generate_vendor_checklist
 from app.planner.ideas import generate_ideas
+from app.planner.advisor import compute_plan_diff, generate_smart_advice
 
 logger = logging.getLogger("event_planner")
 
@@ -207,6 +210,60 @@ def create_full_plan(request: EventRequest) -> FullPlan:
         vendors=vendors,
         ideas=ideas,
     )
+
+
+@app.post("/api/replan", response_model=ReplanResponse, tags=["Planner"])
+def replan_event(payload: ReplanRequest) -> ReplanResponse:
+    """Re-compute plan with modified parameters, returning revised plan, structural diff, and advice."""
+    orig = payload.original_request
+
+    # Compute old plan
+    old_budget = generate_budget_plan(orig)
+    old_timeline = generate_timeline_plan(orig)
+    old_vendors = generate_vendor_checklist(orig, old_budget, old_timeline)
+    old_ideas = generate_ideas(orig, per_guest_cost=old_budget.per_guest_cost)
+    old_plan = FullPlan(
+        request=orig,
+        budget=old_budget,
+        timeline=old_timeline,
+        vendors=old_vendors,
+        ideas=old_ideas,
+    )
+
+    # Build updated request
+    updated_fields = orig.model_dump()
+    if payload.new_budget is not None:
+        updated_fields["total_budget"] = payload.new_budget
+    if payload.new_guest_count is not None:
+        updated_fields["guest_count"] = payload.new_guest_count
+    if payload.new_event_date is not None:
+        updated_fields["event_date"] = payload.new_event_date
+
+    revised_req = EventRequest(**updated_fields)
+
+    # Compute new plan
+    new_budget = generate_budget_plan(revised_req)
+    new_timeline = generate_timeline_plan(revised_req)
+    new_vendors = generate_vendor_checklist(revised_req, new_budget, new_timeline)
+    new_ideas = generate_ideas(revised_req, per_guest_cost=new_budget.per_guest_cost)
+    new_plan = FullPlan(
+        request=revised_req,
+        budget=new_budget,
+        timeline=new_timeline,
+        vendors=new_vendors,
+        ideas=new_ideas,
+    )
+
+    # Compute diff and generate advice
+    diff = compute_plan_diff(old_plan, new_plan)
+    advice = generate_smart_advice(revised_req, new_budget, new_timeline)
+
+    return ReplanResponse(
+        new_plan=new_plan,
+        diff=diff,
+        advice=advice,
+    )
+
 
 
 # ---------------------------------------------------------------------------

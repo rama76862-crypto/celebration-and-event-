@@ -247,6 +247,41 @@
                 <ul id="warnings-list" class="warnings-list"></ul>
             </div>
 
+            <!-- Adjust & Re-plan Panel (Part 9) -->
+            <div class="card subcard adjust-panel" id="adjust-panel">
+                <div class="adjust-header">
+                    <h3>Adjust &amp; Re-plan ("What-If" Analysis)</h3>
+                    <p class="section-desc">Modify budget, guest count, or date to see real-time trade-offs and diff highlights.</p>
+                </div>
+                <form id="replan-form" class="replan-inline-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="replan-budget">Adjust Budget</label>
+                            <input type="number" id="replan-budget" min="1" max="10000000" step="any">
+                        </div>
+                        <div class="form-group">
+                            <label for="replan-guests">Adjust Guests</label>
+                            <input type="number" id="replan-guests" min="1" max="1000">
+                        </div>
+                        <div class="form-group">
+                            <label for="replan-date">Adjust Event Date</label>
+                            <input type="date" id="replan-date">
+                        </div>
+                        <div class="form-group adjust-btn-wrap">
+                            <button type="submit" id="replan-submit-btn" class="btn btn-primary">
+                                Re-plan &amp; Diff
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <!-- What Changed Diff Area -->
+                <div id="replan-diff-container" class="diff-container hidden" aria-live="polite">
+                    <h4>What Changed:</h4>
+                    <div id="diff-summary-badges" class="diff-badges"></div>
+                    <ul id="diff-details-list" class="bullet-list"></ul>
+                </div>
+            </div>
+
             <!-- Accessible WAI-ARIA Tabs -->
             <div class="tabs-container">
                 <div role="tablist" aria-label="Event Plan Sections" class="tablist" id="plan-tablist">
