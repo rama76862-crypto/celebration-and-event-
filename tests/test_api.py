@@ -124,3 +124,31 @@ def test_security_headers_present() -> None:
     assert resp.headers.get("X-Content-Type-Options") == "nosniff"
     assert resp.headers.get("X-Frame-Options") == "DENY"
     assert "default-src 'self'" in resp.headers.get("Content-Security-Policy", "")
+
+
+def test_oversized_payload_returns_413() -> None:
+    """Requests exceeding 100KB limit should be rejected with HTTP 413."""
+    oversized_data = "a" * 120_000
+    headers = {"content-length": str(len(oversized_data))}
+    resp = client.post("/api/plan", content=oversized_data, headers=headers)
+    assert resp.status_code == 413
+    assert "exceeds maximum allowed limit" in resp.json()["detail"]
+
+
+def test_api_replan_endpoint_happy_path() -> None:
+    """Verify /api/replan accepts changes, recalculates plan, and provides diff and advice."""
+    orig_payload = make_payload()
+    replan_payload = {
+        "original_request": orig_payload,
+        "new_budget": 450000.0,
+        "new_guest_count": 120,
+    }
+    resp = client.post("/api/replan", json=replan_payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "new_plan" in data
+    assert "diff" in data
+    assert "advice" in data
+    assert data["new_plan"]["budget"]["total_budget"] == 450000.0
+    assert len(data["diff"]["budget_changes"]) > 0
+
