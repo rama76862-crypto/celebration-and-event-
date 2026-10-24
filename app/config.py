@@ -2,6 +2,7 @@
 
 import os
 from dataclasses import dataclass
+from typing import Tuple
 
 from dotenv import load_dotenv
 
@@ -22,6 +23,14 @@ class Settings:
     host: str = os.getenv("HOST", "127.0.0.1").strip()
     port: int = int(os.getenv("PORT", "8000"))
     environment: str = os.getenv("ENVIRONMENT", "development").strip()
+    frontend_origins: Tuple[str, ...] = tuple(
+        origin.strip()
+        for origin in os.getenv(
+            "FRONTEND_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000",
+        ).split(",")
+        if origin.strip()
+    )
 
     @property
     def has_ai_key(self) -> bool:

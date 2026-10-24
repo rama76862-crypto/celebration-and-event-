@@ -1,7 +1,6 @@
 """FastAPI application with security middleware, rate limiting, and planner endpoints."""
 
 import logging
-import os
 import time
 from collections import defaultdict
 from typing import Any, Dict, List
@@ -10,31 +9,42 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
+from app.config import settings
 from app.models import (
     AgeGroup,
     AllowedCurrency,
-    BudgetPlan,
     CityTier,
     DietaryOption,
     EventRequest,
     EventType,
     FullPlan,
     HealthResponse,
-    IdeaSet,
     IndoorOutdoor,
     PriorityCategory,
     ReplanRequest,
-    ReplanResponse,
-    TimelinePlan,
-    VendorChecklist,
 )
 from app.planner.advisor import compute_plan_diff, generate_smart_advice
 from app.planner.budget import generate_budget_plan
 from app.planner.ideas import generate_ideas
 from app.planner.timeline import generate_timeline_plan
 from app.planner.vendors import generate_vendor_checklist
+from app.presentation import (
+    BudgetResponse,
+    IdeasResponse,
+    PlanResponse,
+    TimelineResponse,
+    VendorChecklistResponse,
+    adapt_budget,
+    adapt_ideas,
+    adapt_plan,
+    adapt_replan,
+    adapt_timeline,
+    adapt_vendors,
+)
+from app.presentation import (
+    ReplanResponse as FrontendReplanResponse,
+)
 
 logger = logging.getLogger("event_planner")
 
@@ -98,8 +108,13 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
 
     # 3. Security Headers
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https:; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data: https:; "
+        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 http://127.0.0.1:3000; "
+        "frame-ancestors 'none';"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -109,11 +124,13 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
     return response
 
 
-# Restrict CORS to same origin by default
+# Allow configured production frontend origins, plus Vercel preview/production
+# subdomains. The API does not use cookies or browser-held credentials.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
-    allow_credentials=True,
+    allow_origins=list(settings.frontend_origins),
+    allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
+    allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -169,52 +186,53 @@ def get_metadata() -> Dict[str, Any]:
     }
 
 
-@app.post("/api/budget", response_model=BudgetPlan, tags=["Planner"])
-def create_budget(request: EventRequest) -> BudgetPlan:
+@app.post("/api/budget", response_model=BudgetResponse, tags=["Planner"])
+def create_budget(request: EventRequest) -> BudgetResponse:
     """Generate budget breakdown only."""
-    return generate_budget_plan(request)
+    return adapt_budget(request, generate_budget_plan(request))
 
 
-@app.post("/api/timeline", response_model=TimelinePlan, tags=["Planner"])
-def create_timeline(request: EventRequest) -> TimelinePlan:
+@app.post("/api/timeline", response_model=TimelineResponse, tags=["Planner"])
+def create_timeline(request: EventRequest) -> TimelineResponse:
     """Generate backwards-planned timeline only."""
-    return generate_timeline_plan(request)
+    return adapt_timeline(request, generate_timeline_plan(request))
 
 
-@app.post("/api/vendors", response_model=VendorChecklist, tags=["Planner"])
-def create_vendors(request: EventRequest) -> VendorChecklist:
+@app.post("/api/vendors", response_model=VendorChecklistResponse, tags=["Planner"])
+def create_vendors(request: EventRequest) -> VendorChecklistResponse:
     """Generate vendor checklist dependent on budget and timeline."""
     budget = generate_budget_plan(request)
     timeline = generate_timeline_plan(request)
-    return generate_vendor_checklist(request, budget, timeline)
+    return adapt_vendors(request, generate_vendor_checklist(request, budget, timeline))
 
 
-@app.post("/api/ideas", response_model=IdeaSet, tags=["Planner"])
-def create_ideas(request: EventRequest) -> IdeaSet:
+@app.post("/api/ideas", response_model=IdeasResponse, tags=["Planner"])
+def create_ideas(request: EventRequest) -> IdeasResponse:
     """Generate personalized ideas using AI with curated fallback."""
     per_guest = request.total_budget / request.guest_count
-    return generate_ideas(request, per_guest_cost=per_guest)
+    return adapt_ideas(request, generate_ideas(request, per_guest_cost=per_guest))
 
 
-@app.post("/api/plan", response_model=FullPlan, tags=["Planner"])
-def create_full_plan(request: EventRequest) -> FullPlan:
+@app.post("/api/plan", response_model=PlanResponse, tags=["Planner"])
+def create_full_plan(request: EventRequest) -> PlanResponse:
     """Orchestrate full event plan in logical order: budget -> timeline -> vendors -> ideas."""
     budget = generate_budget_plan(request)
     timeline = generate_timeline_plan(request)
     vendors = generate_vendor_checklist(request, budget, timeline)
     ideas = generate_ideas(request, per_guest_cost=budget.per_guest_cost)
 
-    return FullPlan(
+    plan = FullPlan(
         request=request,
         budget=budget,
         timeline=timeline,
         vendors=vendors,
         ideas=ideas,
     )
+    return adapt_plan(plan)
 
 
-@app.post("/api/replan", response_model=ReplanResponse, tags=["Planner"])
-def replan_event(payload: ReplanRequest) -> ReplanResponse:
+@app.post("/api/replan", response_model=FrontendReplanResponse, tags=["Planner"])
+def replan_event(payload: ReplanRequest) -> FrontendReplanResponse:
     """Re-compute plan with modified parameters, returning revised plan, structural diff, and advice."""
     orig = payload.original_request
 
@@ -259,17 +277,4 @@ def replan_event(payload: ReplanRequest) -> ReplanResponse:
     diff = compute_plan_diff(old_plan, new_plan)
     advice = generate_smart_advice(revised_req, new_budget, new_timeline)
 
-    return ReplanResponse(
-        new_plan=new_plan,
-        diff=diff,
-        advice=advice,
-    )
-
-
-
-# ---------------------------------------------------------------------------
-# Static Files (Mounted last so API routes take precedence)
-# ---------------------------------------------------------------------------
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-if os.path.isdir(static_dir):
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+    return adapt_replan(old_plan, new_plan, diff, advice)

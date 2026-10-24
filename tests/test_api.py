@@ -57,15 +57,39 @@ def test_api_plan_happy_path_for_each_event_type() -> None:
         assert data["budget"]["total_budget"] == payload["total_budget"]
 
         # Check timeline
-        assert len(data["timeline"]["tasks"]) > 0
+        assert len(data["timeline"]["all_tasks_sorted"]) > 0
         assert len(data["timeline"]["run_of_show"]) > 0
 
         # Check vendors
-        assert len(data["vendors"]["vendors"]) > 0
+        assert len(data["vendors"]["recommended_vendors"]) > 0
 
         # Check ideas
         assert data["ideas"]["source"] in ["ai", "fallback"]
-        assert len(data["ideas"]["theme_ideas"]) > 0
+        assert len(data["ideas"]["theme_concepts"]) > 0
+
+
+def test_plan_response_matches_the_nextjs_rendering_contract() -> None:
+    """Protect the API field names consumed directly by the deployed frontend."""
+    response = client.post("/api/plan", json=make_payload())
+    assert response.status_code == 200, response.text
+    data = response.json()
+
+    assert set(data["budget"]) == {
+        "event_type",
+        "total_budget",
+        "currency",
+        "per_guest_cost",
+        "categories",
+        "total_allocated",
+        "contingency_percentage",
+        "contingency_amount",
+        "benchmark_warnings",
+        "notes",
+    }
+    assert data["budget"]["total_allocated"] == data["budget"]["total_budget"]
+    assert {"all_tasks_sorted", "phases", "run_of_show"} <= set(data["timeline"])
+    assert {"recommended_vendors", "skipped_vendors"} <= set(data["vendors"])
+    assert {"theme_concepts", "menu_recommendations", "budget_hacks"} <= set(data["ideas"])
 
 
 def test_validation_errors_return_422() -> None:
@@ -114,7 +138,7 @@ def test_works_with_ai_disabled_fallback_source() -> None:
     data = response.json()
     # Without API key configured, source must be 'fallback'
     assert data["source"] in ["ai", "fallback"]
-    assert len(data["food_menu_ideas"]) > 0
+    assert len(data["menu_recommendations"]) > 0
 
 
 def test_security_headers_present() -> None:
@@ -151,5 +175,5 @@ def test_api_replan_endpoint_happy_path() -> None:
     assert "diff" in data
     assert "advice" in data
     assert data["new_plan"]["budget"]["total_budget"] == 450000.0
-    assert len(data["diff"]["budget_changes"]) > 0
+    assert len(data["diff"]["category_shifts"]) > 0
 

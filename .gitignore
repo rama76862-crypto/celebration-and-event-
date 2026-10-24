@@ -22,6 +22,7 @@ htmlcov/
 
 # Node / frontend (if any)
 node_modules/
+static/
 
 # OS and Editor
 .DS_Store
