@@ -1,17 +1,18 @@
 """Backwards-planned timeline generator for Event Planning Assistant."""
 
 from datetime import date, timedelta
-from typing import Dict, List
+from typing import List
+
 from app.models import (
     EventRequest,
+    RunOfShowItem,
     TimelinePlan,
     TimelineTask,
-    RunOfShowItem,
 )
 from app.planner.rules import (
-    TASK_TEMPLATES,
-    RUN_OF_SHOW_TEMPLATES,
     IDEAL_LEAD_TIME,
+    RUN_OF_SHOW_TEMPLATES,
+    TASK_TEMPLATES,
 )
 
 

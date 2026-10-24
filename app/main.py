@@ -5,36 +5,36 @@ import os
 import time
 from collections import defaultdict
 from typing import Any, Dict, List
-from fastapi import FastAPI, HTTPException, Request, Response, status
+
+from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
 from app.models import (
-    EventRequest,
+    AgeGroup,
+    AllowedCurrency,
     BudgetPlan,
-    TimelinePlan,
-    VendorChecklist,
-    IdeaSet,
+    CityTier,
+    DietaryOption,
+    EventRequest,
+    EventType,
     FullPlan,
     HealthResponse,
+    IdeaSet,
+    IndoorOutdoor,
+    PriorityCategory,
     ReplanRequest,
     ReplanResponse,
-    EventType,
-    PriorityCategory,
-    AllowedCurrency,
-    DietaryOption,
-    IndoorOutdoor,
-    AgeGroup,
-    CityTier,
+    TimelinePlan,
+    VendorChecklist,
 )
+from app.planner.advisor import compute_plan_diff, generate_smart_advice
 from app.planner.budget import generate_budget_plan
+from app.planner.ideas import generate_ideas
 from app.planner.timeline import generate_timeline_plan
 from app.planner.vendors import generate_vendor_checklist
-from app.planner.ideas import generate_ideas
-from app.planner.advisor import compute_plan_diff, generate_smart_advice
 
 logger = logging.getLogger("event_planner")
 
@@ -126,7 +126,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Return clean, human-readable 422 validation error messages."""
     errors: List[str] = []
     for err in exc.errors():
-        loc = " -> ".join(str(l) for l in err.get("loc", []))
+        loc = " -> ".join(str(part) for part in err.get("loc", []))
         msg = err.get("msg", "Validation error")
         errors.append(f"{loc}: {msg}")
     return JSONResponse(

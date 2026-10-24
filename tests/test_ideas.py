@@ -3,18 +3,17 @@
 import json
 from datetime import date, timedelta
 from unittest.mock import MagicMock
-import pytest
 
+from app.ai.client import AIClient, AIUnavailable
 from app.models import (
+    AgeGroup,
+    AllowedCurrency,
+    DietaryOption,
+    EventPreferences,
     EventRequest,
     EventType,
-    AllowedCurrency,
-    EventPreferences,
-    DietaryOption,
-    AgeGroup,
 )
-from app.ai.client import AIClient, AIUnavailable
-from app.planner.ideas import generate_ideas, generate_fallback_ideas
+from app.planner.ideas import generate_fallback_ideas, generate_ideas
 
 
 def get_mock_request(

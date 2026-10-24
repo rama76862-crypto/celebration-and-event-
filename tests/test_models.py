@@ -1,16 +1,14 @@
 """Tests for Pydantic input models and validation."""
 
 from datetime import date, timedelta
+
 import pytest
 from pydantic import ValidationError
 
 from app.models import (
+    AllowedCurrency,
     EventRequest,
     EventType,
-    AllowedCurrency,
-    EventPreferences,
-    PriorityCategory,
-    DietaryOption,
     IndoorOutdoor,
 )
 

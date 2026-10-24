@@ -1,20 +1,21 @@
 """Adaptive budget allocation engine for weddings, birthdays, and community events."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List
+
 from app.models import (
-    EventRequest,
-    BudgetPlan,
-    BudgetCategoryItem,
-    IndoorOutdoor,
     AgeGroup,
-    DietaryOption,
+    BudgetCategoryItem,
+    BudgetPlan,
     CityTier,
+    DietaryOption,
+    EventRequest,
+    IndoorOutdoor,
 )
 from app.planner.rules import (
     BASE_ALLOCATIONS,
-    PRIORITY_TO_CATEGORY,
     MIN_CATERING_PER_GUEST,
     MONEY_SAVING_TIPS,
+    PRIORITY_TO_CATEGORY,
 )
 
 

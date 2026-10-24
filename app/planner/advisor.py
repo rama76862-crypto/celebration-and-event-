@@ -1,14 +1,14 @@
 """Smart suggestions engine and plan diff computation for dynamic re-planning."""
 
-from typing import List, Optional
-from datetime import date
+from typing import List
+
 from app.models import (
+    BudgetPlan,
+    CategoryDiff,
     EventRequest,
     FullPlan,
     PlanDiff,
-    CategoryDiff,
     SmartAdvice,
-    BudgetPlan,
     TimelinePlan,
 )
 from app.planner.rules import MIN_CATERING_PER_GUEST
@@ -16,7 +16,7 @@ from app.planner.rules import MIN_CATERING_PER_GUEST
 
 def compute_plan_diff(old_plan: FullPlan, new_plan: FullPlan) -> PlanDiff:
     """Calculate structured difference between two plans.
-    
+
     CRITICAL: Lists only categories that actually changed in amount.
     """
     old_cat_map = {c.name: c for c in old_plan.budget.categories}

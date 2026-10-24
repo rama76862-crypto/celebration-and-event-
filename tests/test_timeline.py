@@ -1,14 +1,15 @@
 """Tests for backwards-planned timeline generator."""
 
 from datetime import date, timedelta
+
 from app.models import (
-    EventRequest,
-    EventType,
     AllowedCurrency,
     EventPreferences,
+    EventRequest,
+    EventType,
 )
-from app.planner.timeline import generate_timeline_plan
 from app.planner.rules import BASE_ALLOCATIONS
+from app.planner.timeline import generate_timeline_plan
 
 
 def create_req(event_type: str, days_ahead: int) -> EventRequest:

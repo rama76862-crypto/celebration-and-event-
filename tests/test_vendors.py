@@ -1,14 +1,15 @@
 """Tests for context-aware vendor checklist builder."""
 
 from datetime import date, timedelta
+
 from app.models import (
+    AgeGroup,
+    AllowedCurrency,
+    DietaryOption,
+    EventPreferences,
     EventRequest,
     EventType,
-    AllowedCurrency,
-    EventPreferences,
     IndoorOutdoor,
-    DietaryOption,
-    AgeGroup,
 )
 from app.planner.budget import generate_budget_plan
 from app.planner.timeline import generate_timeline_plan

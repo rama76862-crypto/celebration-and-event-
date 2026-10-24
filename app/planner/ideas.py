@@ -3,16 +3,17 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel, Field, ValidationError
 
+from app.ai.client import AIClient, AIUnavailable
 from app.models import (
+    AgeGroup,
+    DietaryOption,
     EventRequest,
     IdeaSet,
-    DietaryOption,
-    AgeGroup,
 )
-from app.ai.client import AIClient, AIUnavailable
 from app.planner.prompt_templates import SYSTEM_PROMPT, build_user_prompt
 from app.planner.rules import CURATED_IDEA_BANK
 

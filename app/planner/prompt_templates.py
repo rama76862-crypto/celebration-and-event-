@@ -2,7 +2,6 @@
 
 from app.models import EventRequest
 
-
 SYSTEM_PROMPT = """You are a senior event planning expert with years of luxury, boutique, and community event experience.
 Your job is to generate creative, personalized, culturally appropriate, and budget-conscious ideas.
 

@@ -1,17 +1,18 @@
 """Context-aware vendor checklist generator for Event Planning Assistant."""
 
 from datetime import date, timedelta
-from typing import Dict, List, Optional
+from typing import List, Optional
+
 from app.models import (
-    EventRequest,
+    AgeGroup,
     BudgetPlan,
+    DietaryOption,
+    EventRequest,
+    IndoorOutdoor,
+    SkippedVendor,
     TimelinePlan,
     VendorChecklist,
     VendorItem,
-    SkippedVendor,
-    IndoorOutdoor,
-    AgeGroup,
-    DietaryOption,
 )
 
 

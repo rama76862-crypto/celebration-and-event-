@@ -4,8 +4,8 @@ import re
 from datetime import date
 from enum import Enum
 from typing import Any, List, Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Strip control characters (C0 & C1 control codes) except normal whitespace
 CONTROL_CHARS_REGEX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")

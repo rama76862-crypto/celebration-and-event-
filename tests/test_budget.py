@@ -1,13 +1,14 @@
 """Tests for the adaptive budget engine."""
 
 from datetime import date, timedelta
+
 from app.models import (
-    EventRequest,
-    EventType,
     AllowedCurrency,
     EventPreferences,
-    PriorityCategory,
+    EventRequest,
+    EventType,
     IndoorOutdoor,
+    PriorityCategory,
 )
 from app.planner.budget import generate_budget_plan
 

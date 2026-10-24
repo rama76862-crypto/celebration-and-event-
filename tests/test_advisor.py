@@ -1,18 +1,19 @@
 """Tests for the dynamic re-planning advisor and plan diff engine."""
 
 from datetime import date, timedelta
+
 from app.models import (
-    EventRequest,
-    EventType,
     AllowedCurrency,
     EventPreferences,
+    EventRequest,
+    EventType,
     FullPlan,
 )
+from app.planner.advisor import compute_plan_diff, generate_smart_advice
 from app.planner.budget import generate_budget_plan
+from app.planner.ideas import generate_fallback_ideas
 from app.planner.timeline import generate_timeline_plan
 from app.planner.vendors import generate_vendor_checklist
-from app.planner.ideas import generate_fallback_ideas
-from app.planner.advisor import compute_plan_diff, generate_smart_advice
 
 
 def create_full_plan(

@@ -1,11 +1,11 @@
 """Integration tests for FastAPI endpoints, security headers, and rate limiting."""
 
 from datetime import date, timedelta
-from fastapi.testclient import TestClient
-import pytest
 
-from app.main import app, _ip_request_timestamps
-from app.config import settings
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import _ip_request_timestamps, app
 
 client = TestClient(app)
 
@@ -102,7 +102,7 @@ def test_response_never_contains_the_api_key() -> None:
     # Even if an API key exists in config, it must never appear in response body or headers
     response = client.post("/api/plan", json=payload)
     assert fake_key not in response.text
-    for header, value in response.headers.items():
+    for _header, value in response.headers.items():
         assert fake_key not in value
 
 
