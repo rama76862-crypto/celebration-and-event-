@@ -3,27 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="GenAI-Powered Event Planning Assistant for weddings, birthdays, and community events">
-    <title>Celebration & Event Planner</title>
+    <meta name="description" content="Accessible GenAI Event Planning Assistant for weddings, birthdays, and community events">
+    <title>Celebration &amp; Event Planner | Smart GenAI Assistant</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
+    <!-- Skip to main content link for screen-reader and keyboard accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- ARIA Live region for screen-reader announcements -->
+    <div id="aria-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+    <header role="banner">
         <div class="header-container">
-            <h1>Celebration &amp; Event Planner</h1>
-            <p>Smart, context-aware planning for weddings, birthdays, and community gatherings</p>
+            <div class="logo-group">
+                <span class="logo-icon" aria-hidden="true">&#10024;</span>
+                <div>
+                    <h1>Celebration &amp; Event Planner</h1>
+                    <p class="tagline">Smart, context-aware organizing for weddings, birthdays, and community gatherings</p>
+                </div>
+            </div>
+            <div id="api-status-badge" class="badge" aria-label="API connection status">Checking status...</div>
         </div>
     </header>
 
-    <main id="main-content">
-        <section class="card" aria-labelledby="status-title">
-            <h2 id="status-title">System Status</h2>
-            <div id="health-badge" class="badge">Checking connection...</div>
+    <main id="main-content" role="main">
+        <!-- Event Planning Form Section -->
+        <section class="card form-section" aria-labelledby="form-heading">
+            <h2 id="form-heading">Plan Your Next Event</h2>
+            <p class="section-desc">Fill in your celebration specifications below. Deterministic logic calculates accurate budgets and deadlines, while AI tailors bespoke creative concepts.</p>
+
+            <form id="event-form" novalidate>
+                <!-- 1. Event Type Selector -->
+                <fieldset class="form-fieldset">
+                    <legend>1. Select Event Type <span class="required" aria-hidden="true">*</span></legend>
+                    <div class="radio-card-grid" role="radiogroup" aria-required="true" aria-label="Event category">
+                        <label class="radio-card" for="type-wedding">
+                            <input type="radio" id="type-wedding" name="event_type" value="wedding" checked>
+                            <span class="card-content">
+                                <span class="card-icon" aria-hidden="true">&#128141;</span>
+                                <span class="card-title">Wedding</span>
+                                <span class="card-sub">Ceremony, banquets, rituals &amp; reception</span>
+                            </span>
+                        </label>
+                        <label class="radio-card" for="type-birthday">
+                            <input type="radio" id="type-birthday" name="event_type" value="birthday">
+                            <span class="card-content">
+                                <span class="card-icon" aria-hidden="true">&#127874;</span>
+                                <span class="card-title">Birthday</span>
+                                <span class="card-sub">Theme parties, cake, games &amp; favors</span>
+                            </span>
+                        </label>
+                        <label class="radio-card" for="type-community">
+                            <input type="radio" id="type-community" name="event_type" value="community">
+                            <span class="card-content">
+                                <span class="card-icon" aria-hidden="true">&#127963;</span>
+                                <span class="card-title">Community</span>
+                                <span class="card-sub">Festivals, street fairs, stages &amp; permits</span>
+                            </span>
+                        </label>
+                    </div>
+                </fieldset>
+
+                <!-- 2. Core Logistics -->
+                <fieldset class="form-fieldset">
+                    <legend>2. Event Logistics &amp; Budget</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="event-title">Event Title <span class="required" aria-hidden="true">*</span></label>
+                            <input type="text" id="event-title" name="title" required maxlength="100" placeholder="e.g. Diya &amp; Aarav Wedding" aria-describedby="title-help title-error">
+                            <span id="title-help" class="form-help">Descriptive name (1-100 characters).</span>
+                            <span id="title-error" class="error-msg" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="guest-count">Guest Count <span class="required" aria-hidden="true">*</span></label>
+                            <input type="number" id="guest-count" name="guest_count" required min="1" max="1000" placeholder="100" aria-describedby="guest-help guest-error">
+                            <span id="guest-help" class="form-help">Total expected attendees (1 to 1,000).</span>
+                            <span id="guest-error" class="error-msg" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="total-budget">Total Budget <span class="required" aria-hidden="true">*</span></label>
+                            <input type="number" id="total-budget" name="total_budget" required min="1" max="10000000" step="any" placeholder="300000" aria-describedby="budget-help budget-error">
+                            <span id="budget-help" class="form-help">Maximum funds allocated (up to 10,000,000).</span>
+                            <span id="budget-error" class="error-msg" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="currency-select">Currency <span class="required" aria-hidden="true">*</span></label>
+                            <select id="currency-select" name="currency">
+                                <option value="INR" selected>INR (&#8377;)</option>
+                                <option value="USD">USD ($)</option>
+                                <option value="EUR">EUR (&euro;)</option>
+                                <option value="GBP">GBP (&pound;)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="event-date">Event Date <span class="required" aria-hidden="true">*</span></label>
+                            <input type="date" id="event-date" name="event_date" required aria-describedby="date-help date-error">
+                            <span id="date-help" class="form-help">Must be a future calendar date.</span>
+                            <span id="date-error" class="error-msg" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="event-location">Location <span class="required" aria-hidden="true">*</span></label>
+                            <input type="text" id="event-location" name="location" required maxlength="100" placeholder="e.g. Jaipur, Rajasthan" aria-describedby="loc-help loc-error">
+                            <span id="loc-help" class="form-help">City or destination venue.</span>
+                            <span id="loc-error" class="error-msg" role="alert"></span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="city-tier">City Cost Tier</label>
+                            <select id="city-tier" name="city_tier">
+                                <option value="">Standard Benchmark</option>
+                                <option value="metro">Metro (Tier 1 - higher venue/catering overhead)</option>
+                                <option value="tier2">Tier 2 City (Moderate costs)</option>
+                                <option value="small_town">Small Town / Rural (Lower costs)</option>
+                            </select>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- 3. Preferences & Context -->
+                <fieldset class="form-fieldset">
+                    <legend>3. Event Preferences &amp; Themes</legend>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="theme-input">Desired Theme / Vibe</label>
+                            <input type="text" id="theme-input" name="theme" maxlength="100" placeholder="e.g. Royal Rajasthani, Retro 80s, Bohemian Rustic">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="indoor-outdoor">Setting Environment</label>
+                            <select id="indoor-outdoor" name="indoor_outdoor">
+                                <option value="either">Flexible / Either</option>
+                                <option value="indoor">Indoor (Banquet, hall, home)</option>
+                                <option value="outdoor">Outdoor (Lawn, terrace, open park)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="age-group">Primary Demographic</label>
+                            <select id="age-group" name="age_group">
+                                <option value="">Mixed Demographics</option>
+                                <option value="kids">Kids &amp; Toddlers (Entertainment focus)</option>
+                                <option value="teens">Teens &amp; Young Adults</option>
+                                <option value="adults">Adults</option>
+                                <option value="seniors">Seniors / Elders</option>
+                                <option value="mixed">Mixed Multi-Generational</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Dietary Restrictions Checkboxes -->
+                    <div class="sub-group">
+                        <span class="sub-label">Dietary Requirements (select all that apply):</span>
+                        <div class="checkbox-cluster" role="group" aria-label="Dietary preferences">
+                            <label class="checkbox-item"><input type="checkbox" name="dietary" value="vegetarian"> Vegetarian</label>
+                            <label class="checkbox-item"><input type="checkbox" name="dietary" value="vegan"> Vegan</label>
+                            <label class="checkbox-item"><input type="checkbox" name="dietary" value="jain"> Jain (No root vegetables)</label>
+                            <label class="checkbox-item"><input type="checkbox" name="dietary" value="halal"> Halal</label>
+                            <label class="checkbox-item"><input type="checkbox" name="dietary" value="gluten_free"> Gluten-Free</label>
+                        </div>
+                    </div>
+
+                    <!-- Priorities Checkboxes (Max 3) -->
+                    <div class="sub-group">
+                        <span class="sub-label">Prioritized Investment Areas (select up to 3 for +20% budget boost):</span>
+                        <div class="checkbox-cluster" id="priorities-cluster" role="group" aria-label="Budget priority categories">
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="food"> Food &amp; Catering</label>
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="decor"> Decor &amp; Styling</label>
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="music"> Music &amp; Audio</label>
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="photography"> Photography &amp; Video</label>
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="venue"> Venue &amp; Space</label>
+                            <label class="checkbox-item"><input type="checkbox" name="priorities" value="entertainment"> Entertainment &amp; Activities</label>
+                        </div>
+                        <span id="priority-warning" class="hint-msg">Selected: <span id="priority-count">0</span> / 3</span>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="event-notes">Special Requests / Notes</label>
+                        <textarea id="event-notes" name="notes" rows="3" maxlength="500" placeholder="e.g. Bride prefers eco-friendly natural floral decor, groom wants live acoustic guitar welcome..."></textarea>
+                        <span class="char-counter"><span id="notes-char-count">0</span> / 500 characters</span>
+                    </div>
+                </fieldset>
+
+                <div class="form-actions">
+                    <button type="submit" id="submit-plan-btn" class="btn btn-primary">
+                        <span class="btn-text">Generate Event Plan</span>
+                        <span class="spinner hidden" aria-hidden="true"></span>
+                    </button>
+                    <button type="reset" id="reset-form-btn" class="btn btn-secondary">Clear Form</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Loading Feedback State -->
+        <div id="loading-state" class="card status-card hidden" role="status" aria-live="polite">
+            <div class="spinner-large" aria-hidden="true"></div>
+            <h3>Generating Intelligent Event Plan...</h3>
+            <p>Allocating adaptive budget, calculating backwards timeline, and sourcing tailored recommendations.</p>
+        </div>
+
+        <!-- Error Feedback State -->
+        <div id="error-state" class="card error-banner hidden" role="alert">
+            <div class="error-header">
+                <span class="error-icon" aria-hidden="true">&#9888;</span>
+                <h3 id="error-title">Unable to Generate Plan</h3>
+            </div>
+            <p id="error-message">An error occurred while communicating with the planning service.</p>
+            <ul id="error-list" class="error-bullets"></ul>
+            <button type="button" id="dismiss-error-btn" class="btn btn-sm">Dismiss</button>
+        </div>
+
+        <!-- Plan Results Area -->
+        <section id="results-section" class="results-container hidden" aria-labelledby="results-title">
+            <div class="results-header-bar">
+                <div>
+                    <h2 id="results-title">Your Event Master Plan</h2>
+                    <p id="results-subtitle" class="results-meta">Customized blueprint</p>
+                </div>
+                <div class="results-actions" role="toolbar" aria-label="Plan actions">
+                    <button type="button" id="print-plan-btn" class="btn btn-secondary btn-icon" title="Print or Save as PDF">
+                        <span aria-hidden="true">&#128438;</span> Print / PDF
+                    </button>
+                    <button type="button" id="download-json-btn" class="btn btn-secondary btn-icon" title="Download Plan as JSON">
+                        <span aria-hidden="true">&#128190;</span> Export JSON
+                    </button>
+                    <button type="button" id="reset-plan-btn" class="btn btn-outline" title="Reset and plan another event">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prominent Warning Banner -->
+            <div id="plan-warnings" class="warnings-banner hidden" role="region" aria-label="Planning alerts">
+                <div class="warning-title-row">
+                    <span class="warning-icon" aria-hidden="true">&#9888;</span>
+                    <strong>Important Planning Alerts &amp; Considerations:</strong>
+                </div>
+                <ul id="warnings-list" class="warnings-list"></ul>
+            </div>
+
+            <!-- Accessible WAI-ARIA Tabs -->
+            <div class="tabs-container">
+                <div role="tablist" aria-label="Event Plan Sections" class="tablist" id="plan-tablist">
+                    <button type="button" role="tab" aria-selected="true" aria-controls="panel-overview" id="tab-overview" tabindex="0">
+                        Overview
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="panel-budget" id="tab-budget" tabindex="-1">
+                        Budget
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="panel-timeline" id="tab-timeline" tabindex="-1">
+                        Timeline
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="panel-vendors" id="tab-vendors" tabindex="-1">
+                        Vendors
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="panel-ideas" id="tab-ideas" tabindex="-1">
+                        Ideas
+                    </button>
+                </div>
+
+                <!-- Tab Panel 1: Overview -->
+                <div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" class="tabpanel" tabindex="0">
+                    <div class="metric-grid" id="overview-metrics"></div>
+                    <div class="card subcard">
+                        <h3>Money-Saving Recommendations</h3>
+                        <ul id="overview-tips" class="bullet-list"></ul>
+                    </div>
+                </div>
+
+                <!-- Tab Panel 2: Budget -->
+                <div role="tabpanel" id="panel-budget" aria-labelledby="tab-budget" class="tabpanel hidden" tabindex="0">
+                    <div class="card subcard">
+                        <h3>Visual Allocation Breakdown</h3>
+                        <div id="budget-bars-container" class="budget-bars" aria-label="Budget bar visualization"></div>
+                    </div>
+                    <div class="card subcard table-wrapper">
+                        <h3>Itemized Budget Allocation</h3>
+                        <table class="data-table" id="budget-table">
+                            <caption>Detailed category split with contextual reasoning</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Category</th>
+                                    <th scope="col">Share (%)</th>
+                                    <th scope="col">Amount</th>
+                                    <th scope="col">Adjustment Rationale</th>
+                                </tr>
+                            </thead>
+                            <tbody id="budget-tbody"></tbody>
+                            <tfoot id="budget-tfoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Panel 3: Timeline -->
+                <div role="tabpanel" id="panel-timeline" aria-labelledby="tab-timeline" class="tabpanel hidden" tabindex="0">
+                    <div class="timeline-header-card card subcard">
+                        <div class="timeline-progress-bar-container">
+                            <div class="progress-label-row">
+                                <span id="timeline-progress-text">0 / 0 tasks completed (0%)</span>
+                                <span id="timeline-countdown-badge" class="badge"></span>
+                            </div>
+                            <div class="progress-track" role="progressbar" id="timeline-progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Task completion progress">
+                                <div class="progress-fill" id="timeline-progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="timeline-phases-container" class="phases-stack"></div>
+
+                    <div class="card subcard table-wrapper">
+                        <h3>Event Day Run-of-Show Schedule</h3>
+                        <table class="data-table" id="run-of-show-table">
+                            <caption>Chronological hour-by-hour event day schedule</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Timeline</th>
+                                    <th scope="col">Activity</th>
+                                    <th scope="col">Operational Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="run-of-show-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab Panel 4: Vendors -->
+                <div role="tabpanel" id="panel-vendors" aria-labelledby="tab-vendors" class="tabpanel hidden" tabindex="0">
+                    <p class="panel-hint">Review interview questions, verify required documentation, and manage outreach status for each vendor.</p>
+                    <div id="vendors-list-container" class="vendors-accordion"></div>
+                    <div id="skipped-vendors-container" class="skipped-vendors-card card subcard hidden">
+                        <h3>Optimized / Skipped Vendors</h3>
+                        <ul id="skipped-vendors-list" class="bullet-list"></ul>
+                    </div>
+                </div>
+
+                <!-- Tab Panel 5: Ideas -->
+                <div role="tabpanel" id="panel-ideas" aria-labelledby="tab-ideas" class="tabpanel hidden" tabindex="0">
+                    <div class="ideas-source-banner">
+                        <span id="ideas-source-badge" class="badge">Curated Suggestions</span>
+                        <p class="source-desc">Tailored to your budget, dietary constraints, setting, and demographics.</p>
+                    </div>
+                    <div class="ideas-card-grid" id="ideas-grid"></div>
+                </div>
+            </div>
         </section>
     </main>
 
-    <footer>
-        <p>&copy; 2026 Celebration &amp; Event Planner. Built with accessibility and efficiency.</p>
+    <footer role="contentinfo">
+        <div class="footer-container">
+            <p>&copy; 2026 Celebration &amp; Event Planner. Designed for accessibility, resilience, and privacy.</p>
+            <p class="privacy-note">Zero data sold. Local preferences stored solely in your browser's private localStorage.</p>
+        </div>
     </footer>
 
     <script src="app.js"></script>
