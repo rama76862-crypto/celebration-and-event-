@@ -108,11 +108,16 @@ export function generateClientPlan(req: EventRequest): FullPlan {
   }
 
   // Compute category items
-  const nonContingencyBudget = total * (1 - contingencyPct);
+  const contingencyAmount = Math.round(total * contingencyPct);
+  const nonContingencyBudget = total - contingencyAmount;
   const totalWeight = categories.reduce((s, c) => s + c.baseWeight, 0);
-  const budgetCategories = categories.map((c) => {
+  let remainingBudget = nonContingencyBudget;
+  const budgetCategories = categories.map((c, index) => {
     const share = c.baseWeight / totalWeight;
-    const amount = Math.round(nonContingencyBudget * share);
+    const amount = index === categories.length - 1
+      ? remainingBudget
+      : Math.round(nonContingencyBudget * share);
+    remainingBudget -= amount;
     const pct = Math.round((amount / total) * 100);
     return {
       name: c.name,
@@ -122,7 +127,6 @@ export function generateClientPlan(req: EventRequest): FullPlan {
     };
   });
 
-  const contingencyAmount = Math.round(total * contingencyPct);
   const allocatedTotal = budgetCategories.reduce((s, c) => s + c.amount, 0) + contingencyAmount;
 
   const budgetPlan: BudgetPlan = {
@@ -374,17 +378,16 @@ export function generateClientReplan(replanReq: ReplanRequest): ReplanResponse {
 
 // Full API caller with graceful deterministic fallback
 export async function fetchEventPlan(req: EventRequest): Promise<FullPlan> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+  try {
     const res = await fetch(apiUrl("/api/plan"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req),
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
@@ -392,6 +395,8 @@ export async function fetchEventPlan(req: EventRequest): Promise<FullPlan> {
     }
   } catch {
     // Graceful fallback to client deterministic engine
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   return generateClientPlan(req);
@@ -399,17 +404,16 @@ export async function fetchEventPlan(req: EventRequest): Promise<FullPlan> {
 
 // Replan API caller with graceful deterministic fallback
 export async function fetchEventReplan(replanReq: ReplanRequest): Promise<ReplanResponse> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+  try {
     const res = await fetch(apiUrl("/api/replan"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(replanReq),
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
@@ -417,6 +421,8 @@ export async function fetchEventReplan(replanReq: ReplanRequest): Promise<Replan
     }
   } catch {
     // Graceful fallback
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   return generateClientReplan(replanReq);

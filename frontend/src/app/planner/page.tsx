@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -37,6 +37,35 @@ import {
 } from "@/lib/types";
 import { fetchEventPlan, fetchEventReplan } from "@/lib/api";
 import { formatCurrency, playTactileBlip } from "@/lib/utils";
+
+const EVENT_TYPES: readonly EventType[] = ["wedding", "birthday", "community"];
+const CURRENCIES: readonly AllowedCurrency[] = ["INR", "USD", "EUR", "GBP"];
+
+function handleRadioGroupKeyDown<T extends string>(
+  event: React.KeyboardEvent<HTMLButtonElement>,
+  options: readonly T[],
+  currentIndex: number,
+  onSelect: (value: T) => void,
+  idPrefix: string,
+) {
+  let nextIndex = currentIndex;
+  if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    nextIndex = (currentIndex + 1) % options.length;
+  } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    nextIndex = (currentIndex - 1 + options.length) % options.length;
+  } else if (event.key === "Home") {
+    nextIndex = 0;
+  } else if (event.key === "End") {
+    nextIndex = options.length - 1;
+  } else {
+    return;
+  }
+
+  event.preventDefault();
+  const nextValue = options[nextIndex];
+  onSelect(nextValue);
+  document.getElementById(`${idPrefix}-${nextValue}`)?.focus();
+}
 
 function PlannerContent() {
   const searchParams = useSearchParams();
@@ -93,7 +122,7 @@ function PlannerContent() {
     }
   });
   const [expandedVendor, setExpandedVendor] = useState<number | null>(0);
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("budget");
   const [statusMessage, setStatusMessage] = useState<string>("");
 
   // "What-If" Re-planning State
@@ -103,16 +132,52 @@ function PlannerContent() {
   const [replanDate, setReplanDate] = useState<string>(eventDate);
   const [replanLoading, setReplanLoading] = useState(false);
   const [replanResult, setReplanResult] = useState<ReplanResponse | null>(null);
+  const replanDialogRef = useRef<HTMLDivElement>(null);
 
-  // Close modal on Escape key
+  // Keep keyboard focus inside the modal, then restore it to its opener.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isReplanModalOpen) {
+    if (!isReplanModalOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = replanDialogRef.current;
+    if (!dialog) return;
+
+    const getFocusableElements = () => Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => !element.hidden);
+
+    const focusableElements = getFocusableElements();
+    (focusableElements[0] ?? dialog).focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         setIsReplanModalOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const elements = getFocusableElements();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (!first || !last) {
+        event.preventDefault();
+        dialog.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
   }, [isReplanModalOpen]);
 
   // Update defaults when eventType changes
@@ -145,6 +210,12 @@ function PlannerContent() {
       setEventDate(d.toISOString().split("T")[0]);
     }
     setStatusMessage(`Switched celebration archetype to ${type}.`);
+  };
+
+  const handleCurrencySelect = (nextCurrency: AllowedCurrency) => {
+    playTactileBlip("click");
+    setCurrency(nextCurrency);
+    setStatusMessage(`Currency changed to ${nextCurrency}.`);
   };
 
   const toggleTask = (taskTitle: string) => {
@@ -367,13 +438,22 @@ function PlannerContent() {
                 1. Celebration Archetype
               </legend>
               <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Celebration archetype selection">
-                {(["wedding", "birthday", "community"] as EventType[]).map((type) => (
+                {EVENT_TYPES.map((type, index) => (
                   <button
                     key={type}
+                    id={`event-type-${type}`}
                     type="button"
                     role="radio"
                     aria-checked={eventType === type}
+                    tabIndex={eventType === type ? 0 : -1}
                     onClick={() => handleTypeSelect(type)}
+                    onKeyDown={(event) => handleRadioGroupKeyDown(
+                      event,
+                      EVENT_TYPES,
+                      index,
+                      handleTypeSelect,
+                      "event-type",
+                    )}
                     className={`py-3 px-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 border flex flex-col items-center gap-1.5 cursor-pointer ${
                       eventType === type
                         ? type === "wedding"
@@ -429,16 +509,22 @@ function PlannerContent() {
                   Total Budget
                 </label>
                 <div className="flex items-center gap-1" role="radiogroup" aria-label="Currency selection">
-                  {(["INR", "USD", "EUR", "GBP"] as AllowedCurrency[]).map((curr) => (
+                  {CURRENCIES.map((curr, index) => (
                     <button
                       key={curr}
+                      id={`currency-${curr}`}
                       type="button"
                       role="radio"
                       aria-checked={currency === curr}
-                      onClick={() => {
-                        playTactileBlip("click");
-                        setCurrency(curr);
-                      }}
+                      tabIndex={currency === curr ? 0 : -1}
+                      onClick={() => handleCurrencySelect(curr)}
+                      onKeyDown={(event) => handleRadioGroupKeyDown(
+                        event,
+                        CURRENCIES,
+                        index,
+                        handleCurrencySelect,
+                        "currency",
+                      )}
                       className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors cursor-pointer ${
                         currency === curr
                           ? "bg-amber-400 text-black font-bold"
@@ -818,7 +904,6 @@ function PlannerContent() {
                 className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 bg-black/50 overflow-x-auto"
               >
                 {[
-                  { id: "all", label: "Full Dossier", icon: FileText },
                   { id: "budget", label: "Budget", icon: DollarSign },
                   { id: "timeline", label: "Timeline", icon: Calendar },
                   { id: "vendors", label: "Vendors", icon: ShieldCheck },
@@ -871,7 +956,7 @@ function PlannerContent() {
                 id="panel-budget"
                 role="tabpanel"
                 aria-labelledby="tab-budget"
-                hidden={activeTab !== "all" && activeTab !== "budget"}
+                hidden={activeTab !== "budget"}
                 className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
               >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -961,7 +1046,7 @@ function PlannerContent() {
                 id="panel-timeline"
                 role="tabpanel"
                 aria-labelledby="tab-timeline"
-                hidden={activeTab !== "all" && activeTab !== "timeline"}
+                hidden={activeTab !== "timeline"}
                 className="space-y-6"
               >
                 <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
@@ -1069,7 +1154,7 @@ function PlannerContent() {
                 id="panel-vendors"
                 role="tabpanel"
                 aria-labelledby="tab-vendors"
-                hidden={activeTab !== "all" && activeTab !== "vendors"}
+                hidden={activeTab !== "vendors"}
                 className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
               >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -1180,7 +1265,7 @@ function PlannerContent() {
                 id="panel-ideas"
                 role="tabpanel"
                 aria-labelledby="tab-ideas"
-                hidden={activeTab !== "all" && activeTab !== "ideas"}
+                hidden={activeTab !== "ideas"}
                 className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
               >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
@@ -1253,9 +1338,11 @@ function PlannerContent() {
       <AnimatePresence>
         {isReplanModalOpen && activePlan && (
           <div
+            ref={replanDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="replan-modal-title"
+            tabIndex={-1}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
           >
             <motion.div

@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Pytest Test Suite with Coverage Check
         run: |
-          pytest --cov=app --cov-report=term-missing
+          pytest --cov=app --cov-report=term-missing --cov-fail-under=100
 
   frontend-gate:
     name: Frontend Lint, Test & Production Build

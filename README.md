@@ -201,7 +201,7 @@ flowchart TD
 ## 9. Security Measures Implemented
 
 - **Defense-in-Depth Headers**: Emits `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, `COOP: same-origin`, `CORP: cross-origin`, and `COEP: credentialless`.
-- **Reverse-Proxy Rate Limiting**: Sliding window rate limiter enforcing 20 requests/minute per client, safely inspecting `X-Forwarded-For`.
+- **Reverse-Proxy Rate Limiting**: Sliding-window limiter enforcing 20 requests/minute per client. `X-Forwarded-For` is accepted only when an explicitly allow-listed proxy is configured.
 - **Payload Size Guards**: Strict 100 KB payload size limit rejecting oversized requests with HTTP 413.
 - **Sanitized Delimited Prompt Defense**: User text is bounded within delimiter tags; system prompt instructs LLM to treat inputs strictly as untrusted data.
 - **Zero Committed Secrets**: `.env` is strictly git-ignored; error handlers mask raw stack traces to prevent credential reflection.
@@ -228,9 +228,9 @@ npm run build
 ```
 
 ### Coverage Summary
-- **Backend Test Suite**: 86 automated tests across unit, integration, boundary, and security test files.
+- **Backend Test Suite**: 88 automated tests across unit, integration, boundary, and security test files.
 - **Backend Statement Coverage**: **100% coverage** across all modules (`app.main`, `app.ai.client`, `app.models`, `app.config`, `app.planner.*`, `app.presentation`).
-- **Frontend Test Suite**: Zero-dependency automated test runner verifying currency formatting, contingency rules, and replan math.
+- **Frontend Test Suite**: TypeScript tests import the production currency formatter and deterministic fallback/replan engine, including offline API fallback behavior.
 
 ---
 

@@ -1,10 +1,16 @@
 """Integration tests for FastAPI endpoints, security headers, and rate limiting."""
 
+import asyncio
+from dataclasses import replace
 from datetime import date, timedelta
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
+from app import main
 from app.main import _ip_request_timestamps, app
 
 client = TestClient(app)
@@ -104,18 +110,27 @@ def test_validation_errors_return_422() -> None:
 
 
 def test_rate_limit_returns_429() -> None:
-    """Exceeding 20 requests per minute from the same IP must trigger 429."""
+    """Spoofed forwarded headers cannot evade the per-client request limit."""
     payload = make_payload()
 
-    # Dispatch 20 valid requests
-    for _ in range(20):
-        resp = client.post("/api/budget", json=payload)
+    # The TestClient peer remains constant while the attacker supplies a new
+    # forged X-Forwarded-For value with every request.
+    for index in range(20):
+        resp = client.post(
+            "/api/budget",
+            json=payload,
+            headers={"X-Forwarded-For": f"203.0.113.{index}"},
+        )
         assert resp.status_code == 200
 
-    # 21st request should be rate-limited
-    rate_limited_resp = client.post("/api/budget", json=payload)
+    rate_limited_resp = client.post(
+        "/api/budget",
+        json=payload,
+        headers={"X-Forwarded-For": "198.51.100.42"},
+    )
     assert rate_limited_resp.status_code == 429
     assert "Rate limit exceeded" in rate_limited_resp.json()["detail"]
+    assert "default-src 'self'" in rate_limited_resp.headers["Content-Security-Policy"]
 
 
 def test_response_never_contains_the_api_key() -> None:
@@ -158,6 +173,69 @@ def test_oversized_payload_returns_413() -> None:
     resp = client.post("/api/plan", content=oversized_data, headers=headers)
     assert resp.status_code == 413
     assert "exceeds maximum allowed limit" in resp.json()["detail"]
+    assert "default-src 'self'" in resp.headers["Content-Security-Policy"]
+
+
+def test_client_ip_uses_forwarded_header_only_from_a_trusted_proxy() -> None:
+    """Forwarded client IPs are honored only after explicit proxy opt-in."""
+    untrusted_request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "headers": [(b"x-forwarded-for", b"203.0.113.8")],
+            "client": ("198.51.100.9", 12345),
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "path": "/api/plan",
+            "query_string": b"",
+        }
+    )
+    assert main.get_client_ip(untrusted_request) == "198.51.100.9"
+
+    trusted_settings = replace(
+        main.settings,
+        trust_proxy_headers=True,
+        trusted_proxy_ips=("198.51.100.9",),
+    )
+    with patch.object(main, "settings", trusted_settings):
+        assert main.get_client_ip(untrusted_request) == "203.0.113.8"
+        request_without_forwarded_header = Request(
+            {
+                "type": "http",
+                "method": "GET",
+                "headers": [],
+                "client": ("198.51.100.9", 12345),
+                "scheme": "http",
+                "server": ("testserver", 80),
+                "path": "/api/plan",
+                "query_string": b"",
+            }
+        )
+        assert main.get_client_ip(request_without_forwarded_header) == "198.51.100.9"
+
+
+def test_invalid_content_length_is_a_safe_client_error() -> None:
+    """Malformed Content-Length headers receive a protected 400 response."""
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "headers": [(b"content-length", b"not-a-number")],
+            "client": ("198.51.100.10", 12345),
+            "scheme": "http",
+            "server": ("testserver", 80),
+            "path": "/api/plan",
+            "query_string": b"",
+        }
+    )
+
+    async def call_next(_: Request) -> JSONResponse:
+        return JSONResponse({"status": "unexpected"})
+
+    response = asyncio.run(main.security_and_rate_limit_middleware(request, call_next))
+    assert response.status_code == 400
+    assert response.body == b'{"detail":"Invalid Content-Length header."}'
+    assert "default-src 'self'" in response.headers["Content-Security-Policy"]
 
 
 def test_api_replan_endpoint_happy_path() -> None:

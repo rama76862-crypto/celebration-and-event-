@@ -4,7 +4,7 @@ import logging
 import os
 import time
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
@@ -61,7 +61,7 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMIT_MAX_REQUESTS = 20
-_ip_request_timestamps: Dict[str, List[float]] = defaultdict(list)
+_ip_request_timestamps: defaultdict[str, list[float]] = defaultdict(list)
 
 
 def check_rate_limit(client_ip: str) -> bool:
@@ -89,34 +89,8 @@ HTTP_422_UNPROCESSABLE_CONTENT = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT
 MAX_CONTENT_LENGTH = 100_000  # 100 KB limit for payload security
 
 
-@app.middleware("http")
-async def security_and_rate_limit_middleware(request: Request, call_next) -> Response:
-    # 1. Enforce payload size limit
-    content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_CONTENT_LENGTH:
-        return JSONResponse(
-            status_code=HTTP_413_CONTENT_TOO_LARGE,
-            content={"detail": "Request body size exceeds maximum allowed limit (100KB)."},
-        )
-
-    # 2. Rate limiting (apply to API endpoints, bypass /health and docs)
-    path = request.url.path
-    if path.startswith("/api/"):
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            client_ip = forwarded.split(",")[0].strip()
-        else:
-            client_ip = request.client.host if request.client else "127.0.0.1"
-
-        if not check_rate_limit(client_ip):
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={"detail": "Rate limit exceeded. Maximum 20 requests per minute allowed."},
-            )
-
-    response = await call_next(request)
-
-    # 3. Comprehensive Security Headers
+def add_security_headers(response: Response) -> Response:
+    """Attach a consistent baseline of browser-security headers to a response."""
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -124,8 +98,9 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
         "style-src 'self' 'unsafe-inline' https:; "
         "img-src 'self' data: blob: https:; "
         "font-src 'self' data: https:; "
-        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 http://127.0.0.1:3000 https://*.vercel.app https://*.onrender.com; "
-        "frame-ancestors 'none';"
+        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 "
+        "http://localhost:3000 http://127.0.0.1:3000 https://*.vercel.app "
+        "https://*.onrender.com; frame-ancestors 'none';"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -134,8 +109,55 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
     response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
-
     return response
+
+
+def get_client_ip(request: Request) -> str:
+    """Return a rate-limit key without trusting client-supplied proxy headers."""
+    peer_ip = request.client.host if request.client else "127.0.0.1"
+    if not (
+        settings.trust_proxy_headers
+        and peer_ip in settings.trusted_proxy_ips
+    ):
+        return peer_ip
+
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip() or peer_ip
+    return peer_ip
+
+
+def error_response(status_code: int, detail: str) -> JSONResponse:
+    """Build a safe error response with the same headers as successful responses."""
+    return add_security_headers(JSONResponse(status_code=status_code, content={"detail": detail}))
+
+
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next) -> Response:
+    # 1. Enforce payload size limit
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError:
+            return error_response(status.HTTP_400_BAD_REQUEST, "Invalid Content-Length header.")
+        if declared_length > MAX_CONTENT_LENGTH:
+            return error_response(
+                HTTP_413_CONTENT_TOO_LARGE,
+                "Request body size exceeds maximum allowed limit (100KB).",
+            )
+
+    # 2. Rate limiting (apply to API endpoints, bypass /health and docs)
+    path = request.url.path
+    if path.startswith("/api/"):
+        if not check_rate_limit(get_client_ip(request)):
+            return error_response(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "Rate limit exceeded. Maximum 20 requests per minute allowed.",
+            )
+
+    response = await call_next(request)
+    return add_security_headers(response)
 
 
 # Allow configured production frontend origins, plus Vercel preview/production
@@ -156,7 +178,7 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Return clean, human-readable 422 validation error messages."""
-    errors: List[str] = []
+    errors: list[str] = []
     for err in exc.errors():
         loc = " -> ".join(str(part) for part in err.get("loc", []))
         msg = err.get("msg", "Validation error")
@@ -209,7 +231,7 @@ def health_check() -> HealthResponse:
 
 
 @app.get("/api/event-types", tags=["Metadata"])
-def get_metadata() -> Dict[str, Any]:
+def get_metadata() -> dict[str, Any]:
     """Provide choices and enum values for frontend form population."""
     return {
         "event_types": [e.value for e in EventType],

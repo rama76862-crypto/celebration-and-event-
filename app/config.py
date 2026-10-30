@@ -31,6 +31,15 @@ class Settings:
         ).split(",")
         if origin.strip()
     )
+    # Forwarded client-IP headers are only reliable when the direct peer is a
+    # reverse proxy that overwrites them. Keep this opt-in and explicitly
+    # allow-list those proxies to prevent client-controlled rate-limit keys.
+    trust_proxy_headers: bool = os.getenv("TRUST_PROXY_HEADERS", "false").lower() == "true"
+    trusted_proxy_ips: Tuple[str, ...] = tuple(
+        ip.strip()
+        for ip in os.getenv("TRUSTED_PROXY_IPS", "").split(",")
+        if ip.strip()
+    )
 
     @property
     def has_ai_key(self) -> bool:
