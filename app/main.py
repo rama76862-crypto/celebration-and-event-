@@ -1,6 +1,7 @@
 """FastAPI application with security middleware, rate limiting, and planner endpoints."""
 
 import logging
+import os
 import time
 from collections import defaultdict
 from typing import Any, Dict, List
@@ -8,7 +9,8 @@ from typing import Any, Dict, List
 from fastapi import FastAPI, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.models import (
@@ -81,6 +83,9 @@ def check_rate_limit(client_ip: str) -> bool:
 # ---------------------------------------------------------------------------
 # Middleware: Security Headers, Request Size Limits, Rate Limiting
 # ---------------------------------------------------------------------------
+HTTP_413_CONTENT_TOO_LARGE = getattr(status, "HTTP_413_CONTENT_TOO_LARGE", 413)
+HTTP_422_UNPROCESSABLE_CONTENT = getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422)
+
 MAX_CONTENT_LENGTH = 100_000  # 100 KB limit for payload security
 
 
@@ -90,14 +95,19 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > MAX_CONTENT_LENGTH:
         return JSONResponse(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=HTTP_413_CONTENT_TOO_LARGE,
             content={"detail": "Request body size exceeds maximum allowed limit (100KB)."},
         )
 
-    # 2. Rate limiting (apply to API endpoints, bypass /health)
+    # 2. Rate limiting (apply to API endpoints, bypass /health and docs)
     path = request.url.path
     if path.startswith("/api/"):
-        client_ip = request.client.host if request.client else "127.0.0.1"
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "127.0.0.1"
+
         if not check_rate_limit(client_ip):
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -106,20 +116,24 @@ async def security_and_rate_limit_middleware(request: Request, call_next) -> Res
 
     response = await call_next(request)
 
-    # 3. Security Headers
+    # 3. Comprehensive Security Headers
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-eval' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https:; "
-        "img-src 'self' data: blob:; "
+        "img-src 'self' data: blob: https:; "
         "font-src 'self' data: https:; "
-        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 http://127.0.0.1:3000; "
+        "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 http://127.0.0.1:3000 https://*.vercel.app https://*.onrender.com; "
         "frame-ancestors 'none';"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
 
     return response
 
@@ -148,7 +162,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         msg = err.get("msg", "Validation error")
         errors.append(f"{loc}: {msg}")
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=HTTP_422_UNPROCESSABLE_CONTENT,
         content={"detail": "Validation error", "errors": errors},
     )
 
@@ -161,6 +175,28 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected server error occurred. Please try again later."},
     )
+
+
+# ---------------------------------------------------------------------------
+# Static File Mount & Root Route
+# ---------------------------------------------------------------------------
+STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+@app.get("/", tags=["System"])
+def root_endpoint() -> Any:
+    """Serve frontend index if built, otherwise API root status."""
+    index_path = os.path.join(STATIC_DIR, "index.html") if os.path.isdir(STATIC_DIR) else None
+    if index_path and os.path.isfile(index_path):
+        return FileResponse(index_path)
+    return {
+        "status": "ok",
+        "service": "Celebration & Event Studio API",
+        "docs": "/docs",
+        "health": "/health",
+    }
 
 
 # ---------------------------------------------------------------------------

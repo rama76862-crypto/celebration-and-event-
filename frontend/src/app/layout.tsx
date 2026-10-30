@@ -48,9 +48,17 @@ export default function RootLayout({
         {/* Cinematic film grain overlay */}
         <div className="grain-overlay" aria-hidden="true" />
 
+        {/* Accessibility skip-to-content link */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-amber-400 focus:text-black focus:font-semibold focus:rounded-full focus:shadow-2xl focus:outline-none focus:ring-2 focus:ring-amber-300"
+        >
+          Skip to main content
+        </a>
+
         <SmoothScroll>
           <Navbar />
-          <main className="flex-1 w-full">{children}</main>
+          <main id="main-content" tabIndex={-1} className="flex-1 w-full focus:outline-none">{children}</main>
           <Footer />
         </SmoothScroll>
       </body>

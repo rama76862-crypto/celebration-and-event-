@@ -62,6 +62,7 @@ export default function Navbar() {
 
         {/* Desktop Floating Pill Navigation */}
         <nav
+          aria-label="Main navigation"
           className={`hidden md:flex items-center gap-1 glass-panel px-3 py-1.5 rounded-full border transition-all duration-300 pointer-events-auto ${
             scrolled ? "border-white/15 bg-black/70 shadow-2xl" : "border-white/10 bg-black/40"
           }`}
@@ -151,7 +152,9 @@ export default function Navbar() {
               setMobileMenuOpen(!mobileMenuOpen);
             }}
             className="md:hidden glass-panel p-2.5 rounded-full border border-white/10 text-white/80 hover:text-white"
-            aria-label="Toggle menu"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-navigation-drawer"
           >
             {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
@@ -161,7 +164,9 @@ export default function Navbar() {
       {/* Mobile Menu Drawer */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div
+          <motion.nav
+            id="mobile-navigation-drawer"
+            aria-label="Mobile navigation"
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -189,7 +194,7 @@ export default function Navbar() {
                 )}
               </Link>
             ))}
-          </motion.div>
+          </motion.nav>
         )}
       </AnimatePresence>
     </header>

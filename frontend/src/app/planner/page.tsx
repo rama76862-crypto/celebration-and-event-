@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -83,8 +83,18 @@ function PlannerContent() {
   // Execution & Plan State
   const [isGenerating, setIsGenerating] = useState(false);
   const [activePlan, setActivePlan] = useState<FullPlan | null>(null);
-  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>({});
+  const [completedTasks, setCompletedTasks] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("event_planner_completed_tasks");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const [expandedVendor, setExpandedVendor] = useState<number | null>(0);
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [statusMessage, setStatusMessage] = useState<string>("");
 
   // "What-If" Re-planning State
   const [isReplanModalOpen, setIsReplanModalOpen] = useState(false);
@@ -93,6 +103,17 @@ function PlannerContent() {
   const [replanDate, setReplanDate] = useState<string>(eventDate);
   const [replanLoading, setReplanLoading] = useState(false);
   const [replanResult, setReplanResult] = useState<ReplanResponse | null>(null);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isReplanModalOpen) {
+        setIsReplanModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isReplanModalOpen]);
 
   // Update defaults when eventType changes
   const handleTypeSelect = (type: EventType) => {
@@ -123,6 +144,20 @@ function PlannerContent() {
       d.setDate(d.getDate() + 60);
       setEventDate(d.toISOString().split("T")[0]);
     }
+    setStatusMessage(`Switched celebration archetype to ${type}.`);
+  };
+
+  const toggleTask = (taskTitle: string) => {
+    playTactileBlip("click");
+    setCompletedTasks((prev) => {
+      const nextState = { ...prev, [taskTitle]: !prev[taskTitle] };
+      try {
+        localStorage.setItem("event_planner_completed_tasks", JSON.stringify(nextState));
+      } catch {
+        // Fallback
+      }
+      return nextState;
+    });
   };
 
   const togglePriority = (p: PriorityCategory) => {
@@ -194,6 +229,7 @@ function PlannerContent() {
       }
 
       playTactileBlip("success");
+      setStatusMessage(`Event architecture dossier for ${title} successfully generated. Use tabs to explore.`);
 
       // Smooth scroll to generated dossier
       setTimeout(() => {
@@ -201,6 +237,7 @@ function PlannerContent() {
       }, 150);
     } catch {
       setIsGenerating(false);
+      setStatusMessage("Failed to synthesize plan. Please check inputs and try again.");
     }
   };
 
@@ -220,8 +257,10 @@ function PlannerContent() {
       setReplanResult(res);
       setReplanLoading(false);
       playTactileBlip("success");
+      setStatusMessage("What-If re-plan calculated. View structural diff below.");
     } catch {
       setReplanLoading(false);
+      setStatusMessage("Re-planning calculation encountered an issue.");
     }
   };
 
@@ -234,11 +273,38 @@ function PlannerContent() {
     setEventDate(replanResult.new_plan.request.event_date);
     setIsReplanModalOpen(false);
     setReplanResult(null);
+    setStatusMessage("Revised plan applied to primary dossier.");
   };
 
   const handlePrint = () => {
     playTactileBlip("click");
     window.print();
+  };
+
+  const handleDownloadJSON = () => {
+    if (!activePlan) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activePlan, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${(activePlan.request.title || "event_plan").toLowerCase().replace(/\s+/g, "_")}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    playTactileBlip("success");
+    setStatusMessage("Event plan JSON dossier downloaded successfully.");
+  };
+
+  const handleReset = () => {
+    playTactileBlip("click");
+    setActivePlan(null);
+    setCompletedTasks({});
+    try {
+      localStorage.removeItem("event_planner_completed_tasks");
+    } catch {
+      // Fallback
+    }
+    handleTypeSelect(eventType);
+    setStatusMessage("Event planner reset to initial configuration.");
   };
 
   return (
@@ -277,6 +343,11 @@ function PlannerContent() {
         </p>
       </div>
 
+      {/* Live accessibility status announcer */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {statusMessage}
+      </div>
+
       {/* Main Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Configuration Controls (5 cols) */}
@@ -291,17 +362,19 @@ function PlannerContent() {
 
           <form onSubmit={handleGeneratePlan} className="space-y-6">
             {/* Event Category Selector */}
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-2">
+            <fieldset>
+              <legend className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-2">
                 1. Celebration Archetype
-              </label>
-              <div className="grid grid-cols-3 gap-2">
+              </legend>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Celebration archetype selection">
                 {(["wedding", "birthday", "community"] as EventType[]).map((type) => (
                   <button
                     key={type}
                     type="button"
+                    role="radio"
+                    aria-checked={eventType === type}
                     onClick={() => handleTypeSelect(type)}
-                    className={`py-3 px-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 border flex flex-col items-center gap-1.5 ${
+                    className={`py-3 px-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 border flex flex-col items-center gap-1.5 cursor-pointer ${
                       eventType === type
                         ? type === "wedding"
                           ? "bg-amber-400/20 text-amber-200 border-amber-400/50 shadow-lg"
@@ -315,32 +388,36 @@ function PlannerContent() {
                   </button>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             {/* Title & Location */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
+                <label htmlFor="event-title-input" className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
                   Event Title
                 </label>
                 <input
+                  id="event-title-input"
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 transition-colors"
                   required
+                  aria-required="true"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
+                <label htmlFor="event-location-input" className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
                   City Location
                 </label>
                 <input
+                  id="event-location-input"
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 transition-colors"
                   required
+                  aria-required="true"
                 />
               </div>
             </div>
@@ -348,19 +425,21 @@ function PlannerContent() {
             {/* Currency & Total Budget */}
             <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-mono uppercase tracking-wider text-white/70">
+                <label htmlFor="total-budget-number" className="text-xs font-mono uppercase tracking-wider text-white/70">
                   Total Budget
                 </label>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" role="radiogroup" aria-label="Currency selection">
                   {(["INR", "USD", "EUR", "GBP"] as AllowedCurrency[]).map((curr) => (
                     <button
                       key={curr}
                       type="button"
+                      role="radio"
+                      aria-checked={currency === curr}
                       onClick={() => {
                         playTactileBlip("click");
                         setCurrency(curr);
                       }}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors ${
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-colors cursor-pointer ${
                         currency === curr
                           ? "bg-amber-400 text-black font-bold"
                           : "text-white/40 hover:text-white"
@@ -374,27 +453,35 @@ function PlannerContent() {
 
               <div className="relative">
                 <input
+                  id="total-budget-number"
                   type="number"
                   min="1000"
                   max="10000000"
                   step="1000"
                   value={totalBudget}
                   onChange={(e) => setTotalBudget(Number(e.target.value))}
+                  aria-label="Total budget numeric value"
                   className="w-full bg-black/40 border border-white/15 rounded-xl px-4 py-3 text-lg font-mono font-bold text-white focus:outline-none focus:border-amber-400/60"
                   required
+                  aria-required="true"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-white/40">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-white/40" aria-hidden="true">
                   {formatCurrency(totalBudget, currency)}
                 </span>
               </div>
 
               <input
+                id="total-budget-slider"
                 type="range"
                 min="10000"
                 max="5000000"
                 step="10000"
                 value={totalBudget}
                 onChange={(e) => setTotalBudget(Number(e.target.value))}
+                aria-label="Adjust total budget slider"
+                aria-valuemin={10000}
+                aria-valuemax={5000000}
+                aria-valuenow={totalBudget}
                 className="w-full accent-amber-400 cursor-pointer"
               />
             </div>
@@ -403,16 +490,21 @@ function PlannerContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2">
                 <div className="flex items-center justify-between text-xs font-mono text-white/70">
-                  <span>Guest Count</span>
+                  <label htmlFor="guest-count-slider">Guest Count</label>
                   <span className="text-amber-300 font-bold">{guestCount} Guests</span>
                 </div>
                 <input
+                  id="guest-count-slider"
                   type="range"
                   min="10"
                   max="1000"
                   step="5"
                   value={guestCount}
                   onChange={(e) => setGuestCount(Number(e.target.value))}
+                  aria-label="Guest count slider"
+                  aria-valuemin={10}
+                  aria-valuemax={1000}
+                  aria-valuenow={guestCount}
                   className="w-full accent-amber-400 cursor-pointer"
                 />
                 <div className="text-[10px] font-mono text-white/40 text-right">
@@ -421,13 +513,17 @@ function PlannerContent() {
               </div>
 
               <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2">
-                <label className="block text-xs font-mono text-white/70">Target Event Date</label>
+                <label htmlFor="event-date-input" className="block text-xs font-mono text-white/70">
+                  Target Event Date
+                </label>
                 <input
+                  id="event-date-input"
                   type="date"
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
                   className="w-full bg-black/40 border border-white/15 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400/60 font-mono"
                   required
+                  aria-required="true"
                 />
               </div>
             </div>
@@ -435,13 +531,14 @@ function PlannerContent() {
             {/* City Tier & Setting */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
+                <label htmlFor="city-tier-select" className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
                   City Tier
                 </label>
                 <select
+                  id="city-tier-select"
                   value={cityTier}
                   onChange={(e) => setCityTier(e.target.value as CityTier)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 cursor-pointer"
                 >
                   <option value="metro" className="bg-[#0f1420]">Metro (+15% Venue)</option>
                   <option value="tier2" className="bg-[#0f1420]">Tier 2 Standard</option>
@@ -450,13 +547,14 @@ function PlannerContent() {
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
+                <label htmlFor="venue-setting-select" className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
                   Venue Setting
                 </label>
                 <select
+                  id="venue-setting-select"
                   value={indoorOutdoor}
                   onChange={(e) => setIndoorOutdoor(e.target.value as IndoorOutdoor)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400/50 cursor-pointer"
                 >
                   <option value="indoor" className="bg-[#0f1420]">Indoor Hall</option>
                   <option value="outdoor" className="bg-[#0f1420]">Outdoor Lawn (Weather Buffer)</option>
@@ -466,15 +564,15 @@ function PlannerContent() {
             </div>
 
             {/* Priority Weighting Matrix (+20% Boost) */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-mono uppercase tracking-wider text-white/60">
+            <fieldset>
+              <legend className="flex items-center justify-between mb-2 w-full">
+                <span className="text-xs font-mono uppercase tracking-wider text-white/60">
                   Top Focus Priorities (Max 3)
-                </label>
+                </span>
                 <span className="text-[10px] font-mono text-amber-300">
                   {priorities.length}/3 Selected (+20% Weight)
                 </span>
-              </div>
+              </legend>
               <div className="grid grid-cols-3 gap-2">
                 {(["food", "decor", "music", "photography", "venue", "entertainment"] as PriorityCategory[]).map(
                   (p) => {
@@ -483,8 +581,9 @@ function PlannerContent() {
                       <button
                         key={p}
                         type="button"
+                        aria-pressed={isSelected}
                         onClick={() => togglePriority(p)}
-                        className={`py-2 px-2 rounded-xl text-xs font-medium capitalize transition-all border ${
+                        className={`py-2 px-2 rounded-xl text-xs font-medium capitalize transition-all border cursor-pointer ${
                           isSelected
                             ? "bg-amber-400/20 border-amber-400/50 text-amber-200"
                             : "bg-white/5 border-white/5 text-white/50 hover:bg-white/10"
@@ -496,13 +595,13 @@ function PlannerContent() {
                   }
                 )}
               </div>
-            </div>
+            </fieldset>
 
             {/* Dietary Preferences (+8% kitchen surcharge) */}
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-2">
+            <fieldset>
+              <legend className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-2">
                 Dietary Integrity Protocols
-              </label>
+              </legend>
               <div className="flex flex-wrap gap-2">
                 {(["vegetarian", "vegan", "jain", "halal", "gluten_free"] as DietaryOption[]).map((d) => {
                   const isSel = dietary.includes(d);
@@ -510,8 +609,9 @@ function PlannerContent() {
                     <button
                       key={d}
                       type="button"
+                      aria-pressed={isSel}
                       onClick={() => toggleDietary(d)}
-                      className={`text-[11px] font-mono px-3 py-1.5 rounded-full capitalize transition-all border ${
+                      className={`text-[11px] font-mono px-3 py-1.5 rounded-full capitalize transition-all border cursor-pointer ${
                         isSel
                           ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-200"
                           : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"
@@ -522,14 +622,15 @@ function PlannerContent() {
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
 
             {/* Creative Theme & Vision Notes */}
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
+              <label htmlFor="theme-vision-textarea" className="block text-xs font-mono uppercase tracking-wider text-white/60 mb-1.5">
                 Creative Theme &amp; Atmosphere
               </label>
               <textarea
+                id="theme-vision-textarea"
                 rows={2}
                 value={themeVision}
                 onChange={(e) => setThemeVision(e.target.value)}
@@ -614,24 +715,46 @@ function PlannerContent() {
                     </p>
                   </div>
 
-                  {/* Actions: Re-plan & Print */}
-                  <div className="flex items-center gap-2">
+                  {/* Actions: Re-plan, Print, Download JSON, Reset */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => {
                         playTactileBlip("click");
                         setIsReplanModalOpen(true);
                       }}
-                      className="px-4 py-2 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 border border-amber-400/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl bg-amber-400/20 hover:bg-amber-400/30 text-amber-200 border border-amber-400/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      aria-label="Open What-If Re-plan modal"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>&quot;What-If&quot; Re-plan</span>
                     </button>
                     <button
+                      type="button"
                       onClick={handlePrint}
                       className="p-2 rounded-xl glass-panel border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
                       title="Print / Save PDF Dossier"
+                      aria-label="Print or save PDF dossier"
                     >
                       <Printer className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadJSON}
+                      className="p-2 rounded-xl glass-panel border border-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                      title="Download Plan as JSON"
+                      aria-label="Download event plan as JSON file"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-white/60 hover:text-rose-200 border border-white/10 text-xs font-semibold transition-colors cursor-pointer"
+                      title="Reset and start over"
+                      aria-label="Reset plan and return to initial settings"
+                    >
+                      Reset
                     </button>
                   </div>
                 </div>
@@ -688,8 +811,69 @@ function PlannerContent() {
                 )}
               </div>
 
+              {/* WAI-ARIA Accessible Tab Navigation */}
+              <div
+                role="tablist"
+                aria-label="Event Plan Dossier Sections"
+                className="flex items-center gap-2 p-1.5 rounded-2xl glass-panel border border-white/10 bg-black/50 overflow-x-auto"
+              >
+                {[
+                  { id: "all", label: "Full Dossier", icon: FileText },
+                  { id: "budget", label: "Budget", icon: DollarSign },
+                  { id: "timeline", label: "Timeline", icon: Calendar },
+                  { id: "vendors", label: "Vendors", icon: ShieldCheck },
+                  { id: "ideas", label: "Creative Ideas", icon: Lightbulb },
+                ].map((tab, idx, arr) => {
+                  const isSelected = activeTab === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      id={`tab-${tab.id}`}
+                      role="tab"
+                      type="button"
+                      aria-selected={isSelected}
+                      aria-controls={`panel-${tab.id}`}
+                      tabIndex={isSelected ? 0 : -1}
+                      onClick={() => {
+                        playTactileBlip("click");
+                        setActiveTab(tab.id);
+                        setStatusMessage(`Switched to ${tab.label} tab.`);
+                      }}
+                      onKeyDown={(e) => {
+                        let nextIdx = idx;
+                        if (e.key === "ArrowRight") nextIdx = (idx + 1) % arr.length;
+                        else if (e.key === "ArrowLeft") nextIdx = (idx - 1 + arr.length) % arr.length;
+                        else if (e.key === "Home") nextIdx = 0;
+                        else if (e.key === "End") nextIdx = arr.length - 1;
+                        else return;
+                        e.preventDefault();
+                        const nextTab = arr[nextIdx];
+                        setActiveTab(nextTab.id);
+                        setStatusMessage(`Switched to ${nextTab.label} tab.`);
+                        document.getElementById(`tab-${nextTab.id}`)?.focus();
+                      }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer shrink-0 ${
+                        isSelected
+                          ? "bg-amber-400 text-black shadow-lg"
+                          : "text-white/70 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* 1. Itemized Adaptive Budget */}
-              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+              <div
+                id="panel-budget"
+                role="tabpanel"
+                aria-labelledby="tab-budget"
+                hidden={activeTab !== "all" && activeTab !== "budget"}
+                className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+              >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
                   <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
                     <DollarSign className="w-4 h-4 text-amber-400" />
@@ -772,101 +956,122 @@ function PlannerContent() {
                 </div>
               </div>
 
-              {/* 2. Backwards-Planned Timeline Matrix */}
-              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                  <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-emerald-400" />
-                    <span>Backwards-Planned Timeline Matrix</span>
-                  </h4>
-                  <span className="text-xs font-mono text-white/50">
-                    Target: {activePlan.timeline.event_date}
-                  </span>
-                </div>
+              {/* 2. Backwards-Planned Timeline & Run-of-Show */}
+              <div
+                id="panel-timeline"
+                role="tabpanel"
+                aria-labelledby="tab-timeline"
+                hidden={activeTab !== "all" && activeTab !== "timeline"}
+                className="space-y-6"
+              >
+                <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-emerald-400" />
+                      <span>Backwards-Planned Timeline Matrix</span>
+                    </h4>
+                    <span className="text-xs font-mono text-white/50">
+                      Target: {activePlan.timeline.event_date}
+                    </span>
+                  </div>
 
-                <div className="space-y-4">
-                  {activePlan.timeline.all_tasks_sorted.map((task, i) => {
-                    const isDone = !!completedTasks[task.title];
-                    return (
-                      <div
-                        key={i}
-                        onClick={() => {
-                          playTactileBlip("click");
-                          setCompletedTasks({ ...completedTasks, [task.title]: !isDone });
-                        }}
-                        className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                          isDone
-                            ? "bg-white/5 border-white/5 opacity-50 line-through"
-                            : task.is_urgent
-                            ? "bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50"
-                            : "bg-white/5 border-white/10 hover:border-white/20"
-                        }`}
-                      >
-                        <div
-                          className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                            isDone ? "bg-emerald-400 border-emerald-400 text-black" : "border-white/30"
+                  <div className="space-y-4" role="group" aria-label="Timeline tasks checklist">
+                    {activePlan.timeline.all_tasks_sorted.map((task, i) => {
+                      const isDone = !!completedTasks[task.title];
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={isDone}
+                          aria-label={`Mark task as ${isDone ? "incomplete" : "complete"}: ${task.title}`}
+                          onClick={() => toggleTask(task.title)}
+                          onKeyDown={(e) => {
+                            if (e.key === " " || e.key === "Enter") {
+                              e.preventDefault();
+                              toggleTask(task.title);
+                            }
+                          }}
+                          className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                            isDone
+                              ? "bg-white/5 border-white/5 opacity-50 line-through"
+                              : task.is_urgent
+                              ? "bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50"
+                              : "bg-white/5 border-white/10 hover:border-white/20"
                           }`}
                         >
-                          {isDone && <CheckCircle2 className="w-3 h-3" />}
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-white">{task.title}</span>
-                            <div className="flex items-center gap-2">
-                              {task.is_urgent && (
-                                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                                  Urgent Action
-                                </span>
-                              )}
-                              <span className="text-xs font-mono text-white/50 bg-white/5 px-2 py-0.5 rounded">
-                                Due: {task.due_date}
-                              </span>
-                            </div>
+                          <div
+                            className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                              isDone ? "bg-emerald-400 border-emerald-400 text-black" : "border-white/30"
+                            }`}
+                          >
+                            {isDone && <CheckCircle2 className="w-3 h-3" />}
                           </div>
-                          <p className="text-xs text-white/50 mt-1">{task.description}</p>
+
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-white">{task.title}</span>
+                              <div className="flex items-center gap-2">
+                                {task.is_urgent && (
+                                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
+                                    Urgent Action
+                                  </span>
+                                )}
+                                <span className="text-xs font-mono text-white/50 bg-white/5 px-2 py-0.5 rounded">
+                                  Due: {task.due_date}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-white/50 mt-1">{task.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Hour-by-Hour Run-of-Show Choreography */}
+                <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-purple-400" />
+                      <span>Event-Day Run-of-Show Choreography</span>
+                    </h4>
+                    <span className="text-xs font-mono text-white/50">Production Day Order</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {activePlan.timeline.run_of_show.map((slot, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-xs font-mono font-bold text-purple-300 bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20 whitespace-nowrap">
+                            {slot.time_label}
+                          </span>
+                          <div>
+                            <h5 className="text-sm font-semibold text-white">{slot.title}</h5>
+                            <p className="text-xs text-white/50 mt-0.5">{slot.description}</p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. Hour-by-Hour Run-of-Show Choreography */}
-              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                  <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-purple-400" />
-                    <span>Event-Day Run-of-Show Choreography</span>
-                  </h4>
-                  <span className="text-xs font-mono text-white/50">Production Day Order</span>
-                </div>
-
-                <div className="space-y-4">
-                  {activePlan.timeline.run_of_show.map((slot, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="text-xs font-mono font-bold text-purple-300 bg-purple-500/10 px-2.5 py-1 rounded border border-purple-500/20 whitespace-nowrap">
-                          {slot.time_label}
+                        <span className="text-xs font-mono text-white/40 sm:shrink-0 bg-white/5 px-2.5 py-1 rounded">
+                          Lead: {slot.owner}
                         </span>
-                        <div>
-                          <h5 className="text-sm font-semibold text-white">{slot.title}</h5>
-                          <p className="text-xs text-white/50 mt-0.5">{slot.description}</p>
-                        </div>
                       </div>
-                      <span className="text-xs font-mono text-white/40 sm:shrink-0 bg-white/5 px-2.5 py-1 rounded">
-                        Lead: {slot.owner}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* 4. Vendor Dossier & Negotiation Playbook */}
-              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+              <div
+                id="panel-vendors"
+                role="tabpanel"
+                aria-labelledby="tab-vendors"
+                hidden={activeTab !== "all" && activeTab !== "vendors"}
+                className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+              >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
                   <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
                     <FileText className="w-4 h-4 text-amber-400" />
@@ -883,12 +1088,16 @@ function PlannerContent() {
                         key={vIdx}
                         className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden transition-all"
                       >
-                        <div
+                        <button
+                          type="button"
+                          id={`vendor-header-${vIdx}`}
+                          aria-expanded={isExp}
+                          aria-controls={`vendor-details-${vIdx}`}
                           onClick={() => {
                             playTactileBlip("click");
                             setExpandedVendor(isExp ? null : vIdx);
                           }}
-                          className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                          className="w-full text-left p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors focus:outline-none focus:ring-1 focus:ring-amber-400"
                         >
                           <div>
                             <div className="flex items-center gap-2">
@@ -906,10 +1115,15 @@ function PlannerContent() {
                               isExp ? "rotate-180 text-white" : ""
                             }`}
                           />
-                        </div>
+                        </button>
 
                         {isExp && (
-                          <div className="p-5 pt-0 border-t border-white/5 space-y-4 text-xs">
+                          <div
+                            id={`vendor-details-${vIdx}`}
+                            role="region"
+                            aria-labelledby={`vendor-header-${vIdx}`}
+                            className="p-5 pt-0 border-t border-white/5 space-y-4 text-xs"
+                          >
                             {/* Interview Questions */}
                             <div>
                               <span className="font-semibold text-white/80 uppercase font-mono tracking-wider block mb-2 flex items-center gap-1.5">
@@ -962,7 +1176,13 @@ function PlannerContent() {
               </div>
 
               {/* 5. GenAI Creative Moodboard & Concepts */}
-              <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6">
+              <div
+                id="panel-ideas"
+                role="tabpanel"
+                aria-labelledby="tab-ideas"
+                hidden={activeTab !== "all" && activeTab !== "ideas"}
+                className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-6"
+              >
                 <div className="flex items-center justify-between pb-4 border-b border-white/10">
                   <h4 className="text-base font-display font-bold text-white flex items-center gap-2">
                     <Lightbulb className="w-4 h-4 text-amber-300" />
@@ -1032,7 +1252,12 @@ function PlannerContent() {
       {/* "What-If" Re-planning Modal */}
       <AnimatePresence>
         {isReplanModalOpen && activePlan && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="replan-modal-title"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -1041,7 +1266,7 @@ function PlannerContent() {
             >
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div>
-                  <h3 className="text-xl font-display font-bold text-white flex items-center gap-2">
+                  <h3 id="replan-modal-title" className="text-xl font-display font-bold text-white flex items-center gap-2">
                     <RefreshCw className="w-5 h-5 text-amber-400" />
                     <span>&quot;What-If&quot; Dynamic Re-planning</span>
                   </h3>
@@ -1050,8 +1275,10 @@ function PlannerContent() {
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsReplanModalOpen(false)}
-                  className="text-white/40 hover:text-white text-sm font-mono px-3 py-1 rounded bg-white/5"
+                  aria-label="Close re-planning modal dialog"
+                  className="text-white/40 hover:text-white text-sm font-mono px-3 py-1 rounded bg-white/5 cursor-pointer"
                 >
                   ESC / Close
                 </button>
@@ -1061,41 +1288,48 @@ function PlannerContent() {
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-xs font-mono text-white/70 mb-1">
-                    <span>Revised Budget</span>
+                    <label htmlFor="replan-budget-slider">Revised Budget</label>
                     <span className="text-amber-300 font-bold">
                       {formatCurrency(replanBudget, activePlan.budget.currency)}
                     </span>
                   </div>
                   <input
+                    id="replan-budget-slider"
                     type="range"
                     min="10000"
                     max="5000000"
                     step="10000"
                     value={replanBudget}
                     onChange={(e) => setReplanBudget(Number(e.target.value))}
+                    aria-label="Adjust revised budget slider"
                     className="w-full accent-amber-400 cursor-pointer"
                   />
                 </div>
 
                 <div>
                   <div className="flex justify-between text-xs font-mono text-white/70 mb-1">
-                    <span>Revised Guest Count</span>
+                    <label htmlFor="replan-guest-slider">Revised Guest Count</label>
                     <span className="text-amber-300 font-bold">{replanGuests} Guests</span>
                   </div>
                   <input
+                    id="replan-guest-slider"
                     type="range"
                     min="10"
                     max="1000"
                     step="5"
                     value={replanGuests}
                     onChange={(e) => setReplanGuests(Number(e.target.value))}
+                    aria-label="Adjust revised guest count slider"
                     className="w-full accent-amber-400 cursor-pointer"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-white/70 mb-1">Revised Event Date</label>
+                  <label htmlFor="replan-date-input" className="block text-xs font-mono text-white/70 mb-1">
+                    Revised Event Date
+                  </label>
                   <input
+                    id="replan-date-input"
                     type="date"
                     value={replanDate}
                     onChange={(e) => setReplanDate(e.target.value)}
